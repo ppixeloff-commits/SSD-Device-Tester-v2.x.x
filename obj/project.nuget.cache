@@ -1,0 +1,31 @@
+{
+  "version": 2,
+  "dgSpecHash": "p1cBj+CU0Vc=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\beseda\\Downloads\\SW\\SSH Device Tester v2.x.x\\SSHTester\\SSHTester.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\beseda\\.nuget\\packages\\bouncycastle.cryptography\\2.6.2\\bouncycastle.cryptography.2.6.2.nupkg.sha512",
+    "C:\\Users\\beseda\\.nuget\\packages\\microsoft.extensions.dependencyinjection.abstractions\\8.0.2\\microsoft.extensions.dependencyinjection.abstractions.8.0.2.nupkg.sha512",
+    "C:\\Users\\beseda\\.nuget\\packages\\microsoft.extensions.logging.abstractions\\8.0.3\\microsoft.extensions.logging.abstractions.8.0.3.nupkg.sha512",
+    "C:\\Users\\beseda\\.nuget\\packages\\runtime.android-arm.runtime.native.system.io.ports\\10.0.10\\runtime.android-arm.runtime.native.system.io.ports.10.0.10.nupkg.sha512",
+    "C:\\Users\\beseda\\.nuget\\packages\\runtime.android-arm64.runtime.native.system.io.ports\\10.0.10\\runtime.android-arm64.runtime.native.system.io.ports.10.0.10.nupkg.sha512",
+    "C:\\Users\\beseda\\.nuget\\packages\\runtime.android-x64.runtime.native.system.io.ports\\10.0.10\\runtime.android-x64.runtime.native.system.io.ports.10.0.10.nupkg.sha512",
+    "C:\\Users\\beseda\\.nuget\\packages\\runtime.android-x86.runtime.native.system.io.ports\\10.0.10\\runtime.android-x86.runtime.native.system.io.ports.10.0.10.nupkg.sha512",
+    "C:\\Users\\beseda\\.nuget\\packages\\runtime.linux-arm.runtime.native.system.io.ports\\10.0.10\\runtime.linux-arm.runtime.native.system.io.ports.10.0.10.nupkg.sha512",
+    "C:\\Users\\beseda\\.nuget\\packages\\runtime.linux-arm64.runtime.native.system.io.ports\\10.0.10\\runtime.linux-arm64.runtime.native.system.io.ports.10.0.10.nupkg.sha512",
+    "C:\\Users\\beseda\\.nuget\\packages\\runtime.linux-bionic-arm64.runtime.native.system.io.ports\\10.0.10\\runtime.linux-bionic-arm64.runtime.native.system.io.ports.10.0.10.nupkg.sha512",
+    "C:\\Users\\beseda\\.nuget\\packages\\runtime.linux-bionic-x64.runtime.native.system.io.ports\\10.0.10\\runtime.linux-bionic-x64.runtime.native.system.io.ports.10.0.10.nupkg.sha512",
+    "C:\\Users\\beseda\\.nuget\\packages\\runtime.linux-musl-arm.runtime.native.system.io.ports\\10.0.10\\runtime.linux-musl-arm.runtime.native.system.io.ports.10.0.10.nupkg.sha512",
+    "C:\\Users\\beseda\\.nuget\\packages\\runtime.linux-musl-arm64.runtime.native.system.io.ports\\10.0.10\\runtime.linux-musl-arm64.runtime.native.system.io.ports.10.0.10.nupkg.sha512",
+    "C:\\Users\\beseda\\.nuget\\packages\\runtime.linux-musl-x64.runtime.native.system.io.ports\\10.0.10\\runtime.linux-musl-x64.runtime.native.system.io.ports.10.0.10.nupkg.sha512",
+    "C:\\Users\\beseda\\.nuget\\packages\\runtime.linux-x64.runtime.native.system.io.ports\\10.0.10\\runtime.linux-x64.runtime.native.system.io.ports.10.0.10.nupkg.sha512",
+    "C:\\Users\\beseda\\.nuget\\packages\\runtime.maccatalyst-arm64.runtime.native.system.io.ports\\10.0.10\\runtime.maccatalyst-arm64.runtime.native.system.io.ports.10.0.10.nupkg.sha512",
+    "C:\\Users\\beseda\\.nuget\\packages\\runtime.maccatalyst-x64.runtime.native.system.io.ports\\10.0.10\\runtime.maccatalyst-x64.runtime.native.system.io.ports.10.0.10.nupkg.sha512",
+    "C:\\Users\\beseda\\.nuget\\packages\\runtime.native.system.io.ports\\10.0.10\\runtime.native.system.io.ports.10.0.10.nupkg.sha512",
+    "C:\\Users\\beseda\\.nuget\\packages\\runtime.osx-arm64.runtime.native.system.io.ports\\10.0.10\\runtime.osx-arm64.runtime.native.system.io.ports.10.0.10.nupkg.sha512",
+    "C:\\Users\\beseda\\.nuget\\packages\\runtime.osx-x64.runtime.native.system.io.ports\\10.0.10\\runtime.osx-x64.runtime.native.system.io.ports.10.0.10.nupkg.sha512",
+    "C:\\Users\\beseda\\.nuget\\packages\\ssh.net\\2025.1.0\\ssh.net.2025.1.0.nupkg.sha512",
+    "C:\\Users\\beseda\\.nuget\\packages\\system.io.ports\\10.0.10\\system.io.ports.10.0.10.nupkg.sha512"
+  ],
+  "logs": []
+}
