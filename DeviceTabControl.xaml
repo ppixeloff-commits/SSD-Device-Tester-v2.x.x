@@ -4,12 +4,11 @@
              Background="#f8fafc" FontFamily="Segoe UI" FontSize="13">
     
     <UserControl.Resources>
-        <!-- Moderní minimalistický styl pro Expander sekce -->
         <Style TargetType="Expander">
             <Setter Property="Background" Value="#f1f5f9"/>
             <Setter Property="BorderBrush" Value="#e2e8f0"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Margin" Value="0,0,0,8"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Foreground" Value="#1e293b"/>
         </Style>
@@ -17,19 +16,18 @@
             <Setter Property="Background" Value="White"/>
             <Setter Property="BorderBrush" Value="#e2e8f0"/>
             <Setter Property="BorderThickness" Value="0,1,0,0"/>
-            <Setter Property="Padding" Value="12"/>
+            <Setter Property="Padding" Value="8,6"/>
         </Style>
     </UserControl.Resources>
 
-    <Grid Margin="10">
+    <Grid Margin="8">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Horní stavový panel zařízení -->
-        <Border Grid.Row="0" Background="#ffffff" BorderBrush="#e2e8f0" BorderThickness="1" Padding="12,8" Margin="0,0,0,10">
+        <Border Grid.Row="0" Background="#ffffff" BorderBrush="#e2e8f0" BorderThickness="1" Padding="8,6" Margin="0,0,0,6" CornerRadius="8">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -37,27 +35,58 @@
                 </Grid.ColumnDefinitions>
                 
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button x:Name="BtnSaveProfile" Content="Save Profile" Width="90" Height="28" Margin="0,0,6,0" Background="#64748b" Foreground="White" FontWeight="Bold" BorderThickness="0" Cursor="Hand"/>
-                    <Button x:Name="BtnLoadProfile" Content="Load Profile" Width="90" Height="28" Background="#64748b" Foreground="White" FontWeight="Bold" BorderThickness="0" Cursor="Hand"/>
+                    <Button x:Name="BtnSaveProfile" Content="Save Profile" Width="110" FontSize="14" Margin="0,0,6,0" Background="#64748b" Foreground="White" FontWeight="Bold" BorderThickness="0" Cursor="Hand" VerticalAlignment="Center" Padding="4"
+                            ToolTip="Save all settings on this tab (IP, user, cycles, relay, test type...) to a .json profile file. Password and SSH key are NOT stored.">
+                        <Button.Resources>
+                            <Style TargetType="Border">
+                                <Setter Property="CornerRadius" Value="4"/>
+                            </Style>
+                        </Button.Resources>
+                    </Button>
+                    <Button x:Name="BtnLoadProfile" Content="Load Profile" Width="110" FontSize="14" Background="#64748b" Foreground="White" FontWeight="Bold" BorderThickness="0" Cursor="Hand" VerticalAlignment="Center" Padding="4"
+                            ToolTip="Load settings from a previously saved .json profile file into this tab.">
+                        <Button.Resources>
+                            <Style TargetType="Border">
+                                <Setter Property="CornerRadius" Value="4"/>
+                            </Style>
+                        </Button.Resources>
+                    </Button>
+
+                    <TextBlock Text="Device Name:" VerticalAlignment="Center" Margin="15,0,4,0" FontWeight="SemiBold" Foreground="#64748b"
+                               ToolTip="Friendly name shown on this tab and on the Global Dashboard tile. Can be changed at any time, including while a test is running."/>
+                    <TextBox x:Name="TxtDeviceName" Width="150" Padding="6,2" MinHeight="26" VerticalContentAlignment="Center" BorderBrush="#cbd5e1"
+                             ToolTip="Friendly name shown on this tab and on the Global Dashboard tile. Can be changed at any time, including while a test is running."/>
                 </StackPanel>
                 
                 <StackPanel Orientation="Horizontal" Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <TextBlock x:Name="TxtSucc" Text="SUCCESS: 0" Foreground="#10b981" FontWeight="Bold" FontSize="13" Margin="8,0"/>
-                    <TextBlock x:Name="TxtFail" Text="FAIL: 0" Foreground="#ef4444" FontWeight="Bold" FontSize="13" Margin="8,0"/>
-                    <TextBlock x:Name="TxtTotal" Text="TOTAL: 0" Foreground="#3b82f6" FontWeight="Bold" FontSize="13" Margin="8,0"/>
-                    <TextBlock x:Name="TxtAvgTime" Text="AVG TIME: 00:00:00" Foreground="#64748b" FontWeight="SemiBold" FontSize="13" Margin="8,0"/>
-                    <TextBlock x:Name="TxtDevStatus" Text="DEV: Unknown" Foreground="#3b82f6" FontWeight="Bold" FontSize="13" Margin="8,0"/>
-                    <TextBlock x:Name="TxtRelayStatusTxt" Text="RELAY: ON" Foreground="#f59e0b" FontWeight="Bold" FontSize="13" Margin="8,0,15,0"/>
-                    <Canvas x:Name="PieChartCanvas" Width="36" Height="36" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="TxtSucc" Text="SUCCESS: 0" Foreground="#10b981" FontWeight="Bold" FontSize="15" Margin="8,0" VerticalAlignment="Center" ToolTip="Number of completed test cycles that passed"/>
+                    <TextBlock x:Name="TxtFail" Text="FAIL: 0" Foreground="#ef4444" FontWeight="Bold" FontSize="15" Margin="8,0" VerticalAlignment="Center" ToolTip="Number of completed test cycles that failed"/>
+                    <TextBlock x:Name="TxtTotal" Text="TOTAL: 0" Foreground="#3b82f6" FontWeight="Bold" FontSize="15" Margin="8,0" VerticalAlignment="Center" ToolTip="Total number of completed test cycles"/>
+                    <TextBlock x:Name="TxtAvgTime" Text="TIME: 00:00:00" Foreground="#64748b" FontWeight="SemiBold" FontSize="15" Margin="8,0" VerticalAlignment="Center" ToolTip="Celkový aktivní čas testu (bez pauz)"/>
+                    <TextBlock x:Name="TxtDevStatus" Text="DEV: Unknown" Foreground="#3b82f6" FontWeight="Bold" FontSize="15" Margin="8,0" VerticalAlignment="Center" ToolTip="Current ping/online status of the device"/>
+                    <TextBlock x:Name="TxtRelayStatusTxt" Text="RELAY: ON" Foreground="#f59e0b" FontWeight="Bold" FontSize="15" Margin="8,0,20,0" VerticalAlignment="Center" ToolTip="Last known state of the relay power output"/>
+                    
+                    <!-- Nový větší a modernější graf -->
+                    <Grid Width="56" Height="56" VerticalAlignment="Center" ToolTip="Success/fail ratio of all completed cycles">
+                        <Ellipse x:Name="LocalChartBg" Stroke="#94a3b8" StrokeThickness="8" Width="48" Height="48" />
+                        <Ellipse x:Name="LocalChartFg" Stroke="Transparent" StrokeThickness="8" Width="48" Height="48" RenderTransformOrigin="0.5,0.5">
+                            <Ellipse.RenderTransform>
+                                <RotateTransform Angle="-90"/>
+                            </Ellipse.RenderTransform>
+                        </Ellipse>
+                    </Grid>
                 </StackPanel>
             </Grid>
         </Border>
 
-        <!-- Konfigurace a parametry -->
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-            <StackPanel>
-                
-                <!-- Konfigurace -->
+        <Grid Grid.Row="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0">
                 <Expander Header="Configuration" IsExpanded="True">
                     <Border Style="{StaticResource ExpanderContentBorder}">
                         <Grid>
@@ -74,14 +103,16 @@
                                 <ColumnDefinition Width="200"/>
                             </Grid.ColumnDefinitions>
 
-                            <TextBlock Text="IP Address:" Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,6,8" FontWeight="Normal"/>
-                            <TextBox x:Name="TxtIpAddress" Grid.Row="0" Grid.Column="1" Margin="0,0,15,8" Height="26" VerticalContentAlignment="Center" BorderBrush="#cbd5e1"/>
+                            <TextBlock Text="IP Address:" Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,4,4" FontWeight="Normal"/>
+                            <TextBox x:Name="TxtIpAddress" Grid.Row="0" Grid.Column="1" Margin="0,0,10,4" Padding="6,2" MinHeight="26" VerticalContentAlignment="Center" BorderBrush="#cbd5e1"
+                                     ToolTip="IP address or hostname of the device to test over SSH/ping"/>
 
-                            <TextBlock Text="SSH User:" Grid.Row="0" Grid.Column="2" VerticalAlignment="Center" Margin="0,0,6,8" FontWeight="Normal"/>
-                            <TextBox x:Name="TxtUser" Text="root" Grid.Row="0" Grid.Column="3" Margin="0,0,15,8" Height="26" VerticalContentAlignment="Center" BorderBrush="#cbd5e1"/>
+                            <TextBlock Text="SSH User:" Grid.Row="0" Grid.Column="2" VerticalAlignment="Center" Margin="0,0,4,4" FontWeight="Normal"/>
+                            <TextBox x:Name="TxtUser" Text="root" Grid.Row="0" Grid.Column="3" Margin="0,0,10,4" Padding="6,2" MinHeight="26" VerticalContentAlignment="Center" BorderBrush="#cbd5e1"
+                                     ToolTip="Username used to log in over SSH"/>
 
-                            <TextBlock Text="SSH Pass:" Grid.Row="0" Grid.Column="4" VerticalAlignment="Center" Margin="0,0,6,8" FontWeight="Normal"/>
-                            <Grid Grid.Row="0" Grid.Column="5" Margin="0,0,0,8">
+                            <TextBlock Text="SSH Pass:" Grid.Row="0" Grid.Column="4" VerticalAlignment="Center" Margin="0,0,4,4" FontWeight="Normal"/>
+                            <Grid Grid.Row="0" Grid.Column="5" Margin="0,0,0,4">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
@@ -89,106 +120,132 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <PasswordBox x:Name="TxtPassword" Grid.Column="0" Height="26" VerticalContentAlignment="Center"/>
-                                <TextBox x:Name="TxtPasswordVisible" Grid.Column="0" Visibility="Collapsed" Height="26" VerticalContentAlignment="Center"/>
-                                <CheckBox x:Name="ChkShowPass" Content="👁" Grid.Column="1" Margin="6,0,15,0" VerticalAlignment="Center" Click="ChkShowPass_Click" FontWeight="Normal"/>
+                                <PasswordBox x:Name="TxtPassword" Grid.Column="0" Padding="6,2" MinHeight="26" VerticalContentAlignment="Center" ToolTip="SSH password (used if no key path is provided)"/>
+                                <TextBox x:Name="TxtPasswordVisible" Grid.Column="0" Visibility="Collapsed" Padding="6,2" MinHeight="26" VerticalContentAlignment="Center" ToolTip="SSH password (used if no key path is provided)"/>
+                                <ToggleButton x:Name="ChkShowPass" Content="👁" Grid.Column="1" Width="32" Margin="4,0,10,0" Click="ChkShowPass_Click" Background="#cbd5e1" Foreground="#334155" FontWeight="Normal" BorderThickness="0" Cursor="Hand" Padding="0" MinHeight="26" VerticalAlignment="Center"
+                                             ToolTip="Show/hide the password"/>
                                 
-                                <TextBlock Text="SSH Key:" Grid.Column="2" VerticalAlignment="Center" Margin="0,0,6,0" FontWeight="Normal"/>
-                                <TextBox x:Name="TxtSshKey" Grid.Column="3" Height="26" VerticalContentAlignment="Center"/>
-                                <Button x:Name="BtnBrowseKey" Content="..." Grid.Column="4" Width="26" Height="26" Margin="4,0,0,0" Click="BtnBrowseKey_Click" Background="#cbd5e1" Foreground="#334155" FontWeight="Bold" BorderThickness="0" Cursor="Hand"/>
+                                <TextBlock Text="SSH Key:" Grid.Column="2" VerticalAlignment="Center" Margin="0,0,4,0" FontWeight="Normal"/>
+                                <TextBox x:Name="TxtSshKey" Grid.Column="3" Padding="6,2" MinHeight="26" VerticalContentAlignment="Center" ToolTip="Path to a private key file (.pem/.ppk/.key) for key-based SSH auth"/>
+                                <Button x:Name="BtnBrowseKey" Content="..." Grid.Column="4" Width="32" Margin="4,0,0,0" Click="BtnBrowseKey_Click" Background="#cbd5e1" Foreground="#334155" FontWeight="Bold" BorderThickness="0" Cursor="Hand" Padding="0"
+                                        ToolTip="Browse for a private key file"/>
                             </Grid>
 
-                            <TextBlock Text="Cycles(0=inf):" Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,6,0" FontWeight="Normal"/>
-                            <TextBox x:Name="TxtCycles" Text="0" Grid.Row="1" Grid.Column="1" Margin="0,0,15,0" Height="26" VerticalContentAlignment="Center" BorderBrush="#cbd5e1"/>
+                            <TextBlock Text="Cycles(0=inf):" Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,4,0" FontWeight="Normal"/>
+                            <TextBox x:Name="TxtCycles" Text="0" Grid.Row="1" Grid.Column="1" Margin="0,0,10,0" Padding="6,2" MinHeight="26" VerticalContentAlignment="Center" BorderBrush="#cbd5e1"
+                                     ToolTip="How many test cycles to run. 0 = run forever until you click Stop."/>
 
-                            <TextBlock Text="Timeout(s):" Grid.Row="1" Grid.Column="2" VerticalAlignment="Center" Margin="0,0,6,0" FontWeight="Normal"/>
-                            <TextBox x:Name="TxtTimeout" Text="60" Grid.Row="1" Grid.Column="3" Margin="0,0,15,0" Height="26" VerticalContentAlignment="Center" BorderBrush="#cbd5e1"/>
+                            <TextBlock Text="Timeout(s):" Grid.Row="1" Grid.Column="2" VerticalAlignment="Center" Margin="0,0,4,0" FontWeight="Normal"/>
+                            <TextBox x:Name="TxtTimeout" Text="60" Grid.Row="1" Grid.Column="3" Margin="0,0,10,0" Padding="6,2" MinHeight="26" VerticalContentAlignment="Center" BorderBrush="#cbd5e1"
+                                     ToolTip="Max seconds to wait for a single SSH command to finish before it's considered failed"/>
 
                             <StackPanel Orientation="Horizontal" Grid.Row="1" Grid.Column="4" Grid.ColumnSpan="2" VerticalAlignment="Center">
-                                <TextBlock Text="Wait On/Off:" VerticalAlignment="Center" Margin="0,0,6,0" FontWeight="Normal"/>
-                                <TextBox x:Name="TxtWaitOn" Text="10" Width="35" Height="26" VerticalContentAlignment="Center"/>
+                                <TextBlock Text="Wait On/Off:" VerticalAlignment="Center" Margin="0,0,4,0" FontWeight="Normal"/>
+                                <TextBox x:Name="TxtWaitOn" Text="10" Width="45" Padding="6,2" MinHeight="26" VerticalContentAlignment="Center"
+                                         ToolTip="Seconds to wait after the device comes online (boot time) before running the test"/>
                                 <TextBlock Text=" / " VerticalAlignment="Center" FontWeight="Normal"/>
-                                <TextBox x:Name="TxtWaitOff" Text="3" Width="35" Height="26" Margin="0,0,15,0" VerticalContentAlignment="Center"/>
+                                <TextBox x:Name="TxtWaitOff" Text="3" Width="45" Margin="0,0,10,0" Padding="6,2" MinHeight="26" VerticalContentAlignment="Center"
+                                         ToolTip="Seconds to wait after the device goes offline before starting the next cycle"/>
                                 
-                                <TextBlock Text="Ping Cnt/Int:" VerticalAlignment="Center" Margin="0,0,6,0" FontWeight="Normal"/>
-                                <TextBox x:Name="TxtPingCnt" Text="5" Width="35" Height="26" VerticalContentAlignment="Center"/>
+                                <TextBlock Text="Ping Cnt/Int:" VerticalAlignment="Center" Margin="0,0,4,0" FontWeight="Normal"/>
+                                <TextBox x:Name="TxtPingCnt" Text="5" Width="45" Padding="6,2" MinHeight="26" VerticalContentAlignment="Center"
+                                         ToolTip="Consecutive successful/failed pings needed before the device is considered Online/Offline"/>
                                 <TextBlock Text=" / " VerticalAlignment="Center" FontWeight="Normal"/>
-                                <TextBox x:Name="TxtPingInt" Text="1.0" Width="35" Height="26" VerticalContentAlignment="Center"/>
+                                <TextBox x:Name="TxtPingInt" Text="1.0" Width="45" Padding="6,2" MinHeight="26" VerticalContentAlignment="Center"
+                                         ToolTip="Seconds between each ping attempt"/>
                             </StackPanel>
                         </Grid>
                     </Border>
                 </Expander>
 
-                <!-- Relé -->
                 <Expander Header="Relay Power Cycle (Arion COM Port)" IsExpanded="True">
                     <Border Style="{StaticResource ExpanderContentBorder}">
                         <StackPanel>
-                            <CheckBox x:Name="ChkRelayEnable" Content="Enable Relay Power Cycle at the end of each cycle" FontWeight="Normal" Margin="0,0,0,8"/>
+                            <CheckBox x:Name="ChkRelayEnable" Content="Enable Relay Power Cycle at the end of each cycle" FontWeight="Normal" Margin="0,0,0,4"
+                                      ToolTip="If checked, the relay is power-cycled (OFF then ON) automatically after every test cycle"/>
                             
-                            <StackPanel Orientation="Horizontal" Margin="0,2,0,6">
-                                <TextBlock Text="COM Port:" VerticalAlignment="Center" Margin="0,0,6,0" FontWeight="Normal"/>
-                                <TextBox x:Name="TxtRelayPort" Text="COM3" Width="60" Height="26" VerticalContentAlignment="Center" Margin="0,0,15,0"/>
-                                <TextBlock Text="Baudrate:" VerticalAlignment="Center" Margin="0,0,6,0" FontWeight="Normal"/>
-                                <TextBox x:Name="TxtRelayBaud" Text="38400" Width="60" Height="26" VerticalContentAlignment="Center" Margin="0,0,15,0"/>
-                                <TextBlock Text="Address:" VerticalAlignment="Center" Margin="0,0,6,0" FontWeight="Normal"/>
-                                <TextBox x:Name="TxtRelayAddr" Text="1" Width="35" Height="26" VerticalContentAlignment="Center" Margin="0,0,15,0"/>
-                                <TextBlock Text="Relays(0,1):" VerticalAlignment="Center" Margin="0,0,6,0" FontWeight="Normal"/>
-                                <TextBox x:Name="TxtRelayMask" Text="1" Width="35" Height="26" VerticalContentAlignment="Center"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,2,0,4">
+                                <TextBlock Text="COM Port:" VerticalAlignment="Center" Margin="0,0,4,0" FontWeight="Normal"/>
+                                <TextBox x:Name="TxtRelayPort" Text="COM3" Width="65" Padding="6,2" MinHeight="26" VerticalContentAlignment="Center" Margin="0,0,10,0"
+                                         ToolTip="Serial COM port the Arion relay board is connected to"/>
+                                <TextBlock Text="Baudrate:" VerticalAlignment="Center" Margin="0,0,4,0" FontWeight="Normal"/>
+                                <TextBox x:Name="TxtRelayBaud" Text="38400" Width="75" Padding="6,2" MinHeight="26" VerticalContentAlignment="Center" Margin="0,0,10,0"
+                                         ToolTip="Serial baud rate for the relay board (default 38400)"/>
+                                <TextBlock Text="Address:" VerticalAlignment="Center" Margin="0,0,4,0" FontWeight="Normal"/>
+                                <TextBox x:Name="TxtRelayAddr" Text="1" Width="45" Padding="6,2" MinHeight="26" VerticalContentAlignment="Center" Margin="0,0,10,0"
+                                         ToolTip="Arion device address on the bus (default 1)"/>
+                                <TextBlock Text="Relays(0,1):" VerticalAlignment="Center" Margin="0,0,4,0" FontWeight="Normal"/>
+                                <TextBox x:Name="TxtRelayMask" Text="1" Width="45" Padding="6,2" MinHeight="26" VerticalContentAlignment="Center"
+                                         ToolTip="Which relay outputs to switch, e.g. '0,1' toggles relays 0 and 1 together"/>
                             </StackPanel>
 
-                            <StackPanel Orientation="Horizontal" Margin="0,2,0,6">
-                                <TextBlock Text="OFF (ms):" VerticalAlignment="Center" Margin="0,0,6,0" FontWeight="Normal"/>
-                                <TextBox x:Name="TxtRelayOff" Text="10000" Width="60" Height="26" VerticalContentAlignment="Center" Margin="0,0,15,0"/>
-                                <TextBlock Text="ON (ms):" VerticalAlignment="Center" Margin="0,0,6,0" FontWeight="Normal"/>
-                                <TextBox x:Name="TxtRelayOn" Text="1000" Width="60" Height="26" VerticalContentAlignment="Center" Margin="0,0,15,0"/>
-                                <TextBlock Text="Manual:" VerticalAlignment="Center" Margin="0,0,6,0" FontWeight="Normal"/>
-                                <Button x:Name="BtnRelayOn" Content="ON" Width="45" Height="26" Background="#3b82f6" Foreground="White" FontWeight="Bold" BorderThickness="0" Margin="0,0,6,0" Cursor="Hand"/>
-                                <Button x:Name="BtnRelayOff" Content="OFF" Width="45" Height="26" Background="#ef4444" Foreground="White" FontWeight="Bold" BorderThickness="0" Margin="0,0,6,0" Cursor="Hand"/>
-                                <Button x:Name="BtnRelayCycle" Content="Cycle" Width="55" Height="26" Background="#f59e0b" Foreground="White" FontWeight="Bold" BorderThickness="0" Cursor="Hand"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,2,0,4">
+                                <TextBlock Text="OFF (ms):" VerticalAlignment="Center" Margin="0,0,4,0" FontWeight="Normal"/>
+                                <TextBox x:Name="TxtRelayOff" Text="10000" Width="65" Padding="6,2" MinHeight="26" VerticalContentAlignment="Center" Margin="0,0,10,0"
+                                         ToolTip="How long (ms) to keep the relay OFF during a power cycle"/>
+                                <TextBlock Text="ON (ms):" VerticalAlignment="Center" Margin="0,0,4,0" FontWeight="Normal"/>
+                                <TextBox x:Name="TxtRelayOn" Text="1000" Width="65" Padding="6,2" MinHeight="26" VerticalContentAlignment="Center" Margin="0,0,10,0"
+                                         ToolTip="How long (ms) to wait after turning the relay back ON before continuing"/>
+                                <TextBlock Text="Manual:" VerticalAlignment="Center" Margin="0,0,4,0" FontWeight="Normal"/>
+                                <Button x:Name="BtnRelayOn" Content="ON" Width="50" Padding="4,2" Background="#3b82f6" Foreground="White" FontWeight="Bold" BorderThickness="0" Margin="0,0,4,0" Cursor="Hand"
+                                        ToolTip="Manually turn the relay ON right now, using the settings above">
+                                    <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="4"/></Style></Button.Resources>
+                                </Button>
+                                <Button x:Name="BtnRelayOff" Content="OFF" Width="50" Padding="4,2" Background="#ef4444" Foreground="White" FontWeight="Bold" BorderThickness="0" Margin="0,0,4,0" Cursor="Hand"
+                                        ToolTip="Manually turn the relay OFF right now, using the settings above">
+                                    <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="4"/></Style></Button.Resources>
+                                </Button>
+                                <Button x:Name="BtnRelayCycle" Content="Cycle" Width="60" Padding="4,2" Background="#f59e0b" Foreground="White" FontWeight="Bold" BorderThickness="0" Cursor="Hand"
+                                        ToolTip="Manually run a full OFF-then-ON power cycle right now">
+                                    <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="4"/></Style></Button.Resources>
+                                </Button>
                             </StackPanel>
 
-                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                <CheckBox x:Name="ChkRelayAutoRecover" Content="Auto-recover (restart) if offline for:" VerticalAlignment="Center" FontWeight="Normal" Margin="0,0,6,0"/>
-                                <TextBox x:Name="TxtAutoRecoverSec" Text="300" Width="40" Height="26" VerticalContentAlignment="Center" Margin="0,0,6,0"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                <CheckBox x:Name="ChkRelayAutoRecover" Content="Auto-recover (restart) if offline for:" VerticalAlignment="Center" FontWeight="Normal" Margin="0,0,4,0"
+                                          ToolTip="If the device stays offline this long while waiting, automatically power-cycle the relay to try to bring it back"/>
+                                <TextBox x:Name="TxtAutoRecoverSec" Text="300" Width="55" Padding="6,2" MinHeight="26" VerticalContentAlignment="Center" Margin="0,0,4,0"
+                                         ToolTip="Seconds of continuous offline time before an auto-recover power cycle is triggered"/>
                                 <TextBlock Text="s" VerticalAlignment="Center" FontWeight="Normal"/>
                             </StackPanel>
                         </StackPanel>
                     </Border>
                 </Expander>
 
-                <!-- Typ Testu -->
                 <Expander Header="Test Type" IsExpanded="True">
                     <Border Style="{StaticResource ExpanderContentBorder}">
                         <StackPanel Orientation="Horizontal">
-                            <RadioButton x:Name="RbModem" GroupName="TestType" Content="Modem Test" Checked="ToggleParams" Margin="0,0,20,0"/>
-                            <RadioButton x:Name="RbSsd1Gb" GroupName="TestType" Content="SSD 1GB Test" Checked="ToggleParams" Margin="0,0,20,0"/>
-                            <RadioButton x:Name="RbSsdStress" GroupName="TestType" Content="SSD Stress Test" IsChecked="True" Checked="ToggleParams" Margin="0,0,20,0"/>
-                            <RadioButton x:Name="RbFsck" GroupName="TestType" Content="FSCK Drive Test" Checked="ToggleParams" Margin="0,0,20,0"/>
-                            <RadioButton x:Name="RbCustom" GroupName="TestType" Content="Custom Test" Checked="ToggleParams"/>
+                            <RadioButton x:Name="RbModem" GroupName="TestType" Content="Modem Test" Checked="ToggleParams" Margin="0,0,15,0" ToolTip="Checks for modem presence (and optionally specific IMEIs/count) via mmcli"/>
+                            <RadioButton x:Name="RbSsd1Gb" GroupName="TestType" Content="SSD 1GB Test" Checked="ToggleParams" Margin="0,0,15,0" ToolTip="Verifies (or creates) a 1GB test file via checksum"/>
+                            <RadioButton x:Name="RbSsdStress" GroupName="TestType" Content="SSD Stress Test" IsChecked="True" Checked="ToggleParams" Margin="0,0,15,0" ToolTip="Writes then reads a large file each cycle to stress-test storage"/>
+                            <RadioButton x:Name="RbSsdContinuous" GroupName="TestType" Content="Continuous R/W Test" Checked="ToggleParams" Margin="0,0,15,0" ToolTip="Runs repeated write/read passes without restarting or power-cycling between them"/>
+                            <RadioButton x:Name="RbFsck" GroupName="TestType" Content="FSCK Drive Test" Checked="ToggleParams" Margin="0,0,15,0" ToolTip="Filesystem check style test (uses the SSD 1GB parameters)"/>
+                            <RadioButton x:Name="RbCustom" GroupName="TestType" Content="Custom Test" Checked="ToggleParams" ToolTip="Runs your own list of SSH commands from a text file"/>
                         </StackPanel>
                     </Border>
                 </Expander>
 
-                <!-- Parametry Testu -->
                 <Expander Header="Test Parameters" IsExpanded="True">
                     <Border Style="{StaticResource ExpanderContentBorder}">
                         <Grid>
                             <StackPanel x:Name="PanelStress" Visibility="Visible">
-                                <Grid Margin="0,0,0,6">
+                                <Grid Margin="0,0,0,4">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="130"/>
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="Mount Device (opt):" VerticalAlignment="Center" FontWeight="Normal"/>
-                                    <TextBox x:Name="TxtStressMount" Text="/dev/sdb" Grid.Column="1" Height="26" VerticalContentAlignment="Center"/>
+                                    <TextBox x:Name="TxtStressMount" Text="/dev/sdb" Grid.Column="1" Padding="6,2" MinHeight="26" VerticalContentAlignment="Center"
+                                             ToolTip="Optional block device to mount before testing, e.g. /dev/sdb. Leave empty to skip mounting."/>
                                 </Grid>
-                                <Grid Margin="0,0,0,6">
+                                <Grid Margin="0,0,0,4">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="130"/>
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="Target Directory:" VerticalAlignment="Center" FontWeight="Normal"/>
-                                    <TextBox x:Name="TxtStressDir" Text="/mnt" Grid.Column="1" Height="26" VerticalContentAlignment="Center"/>
+                                    <TextBox x:Name="TxtStressDir" Text="/mnt" Grid.Column="1" Padding="6,2" MinHeight="26" VerticalContentAlignment="Center"
+                                             ToolTip="Directory on the device where test files are written/read"/>
                                 </Grid>
                                 <Grid x:Name="PanelStressSize">
                                     <Grid.ColumnDefinitions>
@@ -196,18 +253,20 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="Disk Size (GB):" VerticalAlignment="Center" FontWeight="Normal"/>
-                                    <TextBox x:Name="TxtStressSize" Text="3.8" Grid.Column="1" Width="100" Height="26" VerticalContentAlignment="Center"/>
+                                    <TextBox x:Name="TxtStressSize" Text="3.8" Grid.Column="1" Width="100" Padding="6,2" MinHeight="26" VerticalContentAlignment="Center"
+                                             ToolTip="Usable disk size in GB. The stress test writes/reads about 80% of this (capped at 20000 MB)."/>
                                 </Grid>
                             </StackPanel>
 
                             <StackPanel x:Name="PanelModem" Visibility="Collapsed">
-                                <Grid Margin="0,0,0,6">
+                                <Grid Margin="0,0,0,4">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="130"/>
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="Expected IMEIs (csv):" VerticalAlignment="Center" FontWeight="Normal"/>
-                                    <TextBox x:Name="TxtModemImei" Grid.Column="1" Height="26" VerticalContentAlignment="Center"/>
+                                    <TextBox x:Name="TxtModemImei" Grid.Column="1" Padding="6,2" MinHeight="26" VerticalContentAlignment="Center"
+                                             ToolTip="Comma-separated list of IMEIs that must all appear in 'mmcli -L' output for the test to pass"/>
                                 </Grid>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
@@ -215,7 +274,8 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="Or count:" VerticalAlignment="Center" FontWeight="Normal"/>
-                                    <TextBox x:Name="TxtModemCount" Grid.Column="1" Width="100" Height="26" VerticalContentAlignment="Center"/>
+                                    <TextBox x:Name="TxtModemCount" Grid.Column="1" Width="100" Padding="6,2" MinHeight="26" VerticalContentAlignment="Center"
+                                             ToolTip="Expected number of modems (informational, not currently enforced)"/>
                                 </Grid>
                             </StackPanel>
 
@@ -227,47 +287,64 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="Commands File (.txt):" VerticalAlignment="Center" FontWeight="Normal"/>
-                                    <TextBox x:Name="TxtCustomFile" Grid.Column="1" Height="26" VerticalContentAlignment="Center"/>
-                                    <Button x:Name="BtnBrowse" Content="..." Grid.Column="2" Width="30" Height="26" Margin="6,0,0,0" Background="#cbd5e1" Foreground="#334155" FontWeight="Bold" BorderThickness="0" Cursor="Hand"/>
+                                    <TextBox x:Name="TxtCustomFile" Grid.Column="1" Padding="6,2" MinHeight="26" VerticalContentAlignment="Center"
+                                             ToolTip="Text file with one 'command;expected_output' per line. Expected output is optional."/>
+                                    <Button x:Name="BtnBrowse" Content="..." Grid.Column="2" Width="32" Margin="4,0,0,0" Background="#cbd5e1" Foreground="#334155" FontWeight="Bold" BorderThickness="0" Cursor="Hand" Padding="0"
+                                            ToolTip="Browse for a commands file"/>
                                 </Grid>
                             </StackPanel>
                         </Grid>
                     </Border>
                 </Expander>
 
-                <!-- Hlavní akční tlačítka -->
-                <Grid Margin="0,6,0,8">
+                <Grid Margin="0,6,0,4">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
+                    
                     <StackPanel Orientation="Horizontal" Grid.Column="0">
-                        <Button x:Name="BtnStart" Content="Start Test" Width="100" Height="32" Background="#10b981" Foreground="White" FontWeight="Bold" BorderThickness="0" Margin="0,0,8,0" Cursor="Hand"/>
-                        <Button Content="Pause" Width="80" Height="32" Background="#f59e0b" Foreground="White" FontWeight="Bold" BorderThickness="0" Margin="0,0,8,0" IsEnabled="False"/>
-                        <Button x:Name="BtnStop" Content="Stop Test" Width="100" Height="32" Background="#ef4444" Foreground="White" FontWeight="Bold" BorderThickness="0" Margin="0,0,8,0" IsEnabled="False"/>
-                        <Button Content="Apply Changes" Width="120" Height="32" Background="#94a3b8" Foreground="White" FontWeight="Bold" BorderThickness="0" IsEnabled="False"/>
+                        <Button x:Name="BtnStart" Content="Start Test" Width="100" Padding="8,6" Background="#10b981" Foreground="White" FontWeight="Bold" BorderThickness="0" Margin="0,0,6,0" Cursor="Hand" ToolTip="Start running test cycles with the settings above">
+                            <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="6"/></Style></Button.Resources>
+                        </Button>
+                        <Button x:Name="BtnPause" Content="Pause" Width="80" Padding="8,6" Background="#f59e0b" Foreground="White" FontWeight="Bold" BorderThickness="0" Margin="0,0,6,0" IsEnabled="False" ToolTip="Pause after the current cycle finishes. Click again (now labeled Resume) to continue.">
+                            <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="6"/></Style></Button.Resources>
+                        </Button>
+                        <Button x:Name="BtnStop" Content="Stop Test" Width="100" Padding="8,6" Background="#ef4444" Foreground="White" FontWeight="Bold" BorderThickness="0" Margin="0,0,6,0" IsEnabled="False" ToolTip="Stop the running test">
+                            <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="6"/></Style></Button.Resources>
+                        </Button>
+                        <Button x:Name="BtnApplyChanges" Content="Apply Changes" Width="120" Padding="8,6" Background="#94a3b8" Foreground="White" FontWeight="Bold" BorderThickness="0" IsEnabled="False" ToolTip="Apply changed cycles/timeouts/wait times/relay/stress settings to the test that's currently running, without restarting it. IP, user, password and test type require a restart.">
+                            <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="6"/></Style></Button.Resources>
+                        </Button>
                     </StackPanel>
+                    
                     <StackPanel Orientation="Horizontal" Grid.Column="2">
-                        <Button x:Name="BtnClearLog" Content="Clear Log" Width="90" Height="32" Background="#64748b" Foreground="White" FontWeight="Bold" BorderThickness="0" Margin="0,0,6,0" Cursor="Hand"/>
-                        <Button x:Name="BtnExportCsv" Content="Export CSV" Width="90" Height="32" Background="#3b82f6" Foreground="White" FontWeight="Bold" BorderThickness="0" Margin="0,0,6,0" Cursor="Hand"/>
-                        <Button x:Name="BtnExportLog" Content="Export Log" Width="90" Height="32" Background="#3b82f6" Foreground="White" FontWeight="Bold" BorderThickness="0" Cursor="Hand"/>
+                        <Button x:Name="BtnClearLog" Content="Clear Log" Width="90" Padding="8,6" Background="#64748b" Foreground="White" FontWeight="Bold" BorderThickness="0" Margin="0,0,6,0" Cursor="Hand" ToolTip="Clear the console output below">
+                            <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="6"/></Style></Button.Resources>
+                        </Button>
+                        <Button x:Name="BtnExportCsv" Content="Export CSV" Width="90" Padding="8,6" Background="#3b82f6" Foreground="White" FontWeight="Bold" BorderThickness="0" Margin="0,0,6,0" Cursor="Hand" ToolTip="Export this device's current success/fail totals to a CSV file">
+                            <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="6"/></Style></Button.Resources>
+                        </Button>
+                        <Button x:Name="BtnExportLog" Content="Export Log" Width="90" Padding="8,6" Background="#3b82f6" Foreground="White" FontWeight="Bold" BorderThickness="0" Cursor="Hand" ToolTip="Export the console output below to a text file">
+                            <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="6"/></Style></Button.Resources>
+                        </Button>
                     </StackPanel>
                 </Grid>
-
-                <TextBlock Text="Console Output" FontWeight="Bold" Foreground="#475569" Margin="0,6,0,4"/>
-                <TextBox x:Name="TxtConsole" Background="#0f172a" Foreground="#38bdf8" FontFamily="Consolas" FontSize="12" Height="320" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" IsReadOnly="True" BorderThickness="1" BorderBrush="#cbd5e1"/>
             </StackPanel>
-        </ScrollViewer>
 
-        <!-- Spodní StatusBar -->
+            <TextBlock Grid.Row="1" Text="Console Output" FontWeight="Bold" Foreground="#475569" Margin="0,6,0,2"/>
+            
+            <TextBox Grid.Row="2" x:Name="TxtConsole" Style="{x:Null}" Background="#0f172a" Foreground="#38bdf8" FontFamily="Consolas" FontSize="13" Padding="8" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" IsReadOnly="True" BorderThickness="1" BorderBrush="#cbd5e1"/>
+        </Grid>
+
         <Grid Grid.Row="2" Margin="0,6,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
-            <TextBlock x:Name="TxtStatus" Text="Ready..." FontWeight="Normal" VerticalAlignment="Center" Margin="0,0,15,0" Foreground="#64748b"/>
-            <ProgressBar x:Name="PbStatus" Grid.Column="1" Height="8" Minimum="0" Maximum="100" Value="0" Foreground="#3b82f6" Background="#e2e8f0" BorderThickness="0"/>
+            <TextBlock x:Name="TxtStatus" Text="Ready..." FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,15,0" Foreground="#64748b"/>
+            <ProgressBar x:Name="PbStatus" Grid.Column="1" Height="6" Minimum="0" Maximum="100" Value="0" Foreground="#3b82f6" Background="#e2e8f0" BorderThickness="0"/>
         </Grid>
     </Grid>
 </UserControl>

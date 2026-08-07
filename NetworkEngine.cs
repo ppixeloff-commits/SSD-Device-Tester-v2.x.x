@@ -41,7 +41,16 @@ namespace SSHTester
             };
 
             using var client = new SshClient(connectionInfo);
-            client.Connect();
+
+            var connectTask = Task.Run(() => client.Connect());
+            if (!connectTask.Wait(TimeSpan.FromSeconds(20)))
+            {
+                throw new TimeoutException($"SSH connect to {config.Ip} timed out after 20s (device unreachable, wrong IP, or firewalled).");
+            }
+            if (connectTask.IsFaulted)
+            {
+                throw connectTask.Exception?.GetBaseException() ?? new Exception("SSH connect failed.");
+            }
 
             using var sshCommand = client.CreateCommand(command);
             sshCommand.CommandTimeout = TimeSpan.FromSeconds(config.SshTimeout);

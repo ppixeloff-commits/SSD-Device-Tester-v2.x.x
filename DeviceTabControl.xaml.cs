@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
@@ -16,29 +17,81 @@ namespace SSHTester
         private int _succCount = 0;
         private int _failCount = 0;
         private int _totalCount = 0;
-        private double _totalSeconds = 0;
         private DeviceState? _dashboardState;
+        private TestConfig? _activeConfig;
+        
+        private System.Windows.Threading.DispatcherTimer _uiTimer;
 
         public DeviceTabControl()
         {
             InitializeComponent();
             UpdatePieChart(0, 0);
-            BtnStart.Click += BtnStart_Click;
-            BtnStop.Click += BtnStop_Click;
+
+            _uiTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+            _uiTimer.Tick += (s, e) =>
+            {
+                if (_engine != null) 
+                    TxtAvgTime.Text = $"TIME: {_engine.ActiveTime:hh\\:mm\\:ss}";
+            };
+
+            BtnStart.Click += (s, e) => StartTest();
+            BtnStop.Click += (s, e) => StopTest();
+            BtnPause.Click += BtnPause_Click;
+            BtnApplyChanges.Click += BtnApplyChanges_Click;
             BtnClearLog.Click += (s, e) => TxtConsole.Clear();
             BtnSaveProfile.Click += BtnSaveProfile_Click;
             BtnLoadProfile.Click += BtnLoadProfile_Click;
             BtnExportLog.Click += BtnExportLog_Click;
+            BtnExportCsv.Click += BtnExportCsv_Click;
             BtnBrowse.Click += BtnBrowse_Click;
             
-            BtnRelayOn.Click += (s, e) => SendManualRelay(new byte[] { 0xFF });
-            BtnRelayOff.Click += (s, e) => SendManualRelay(new byte[] { 0x00 });
+            BtnRelayOn.Click += async (s, e) => await SendManualRelayAsync(true);
+            BtnRelayOff.Click += async (s, e) => await SendManualRelayAsync(false);
             BtnRelayCycle.Click += BtnRelayCycle_Click;
+        }
+
+        private (string port, int baud, int address, int mask) CaptureRelayUiValues()
+        {
+            string port = TxtRelayPort.Text;
+            int baud = int.TryParse(TxtRelayBaud.Text, out int rb) ? rb : 38400;
+            int address = int.TryParse(TxtRelayAddr.Text, out int radr) ? radr : 1;
+            int mask = RelayController.ParseMask(TxtRelayMask.Text);
+            return (port, baud, address, mask);
+        }
+
+        private async Task SendManualRelayAsync(bool turnOn)
+        {
+            var (port, baud, address, mask) = CaptureRelayUiValues();
+            try
+            {
+                await Task.Run(() =>
+                {
+                    if (turnOn) RelayController.TurnOn(port, baud, address, mask);
+                    else RelayController.TurnOff(port, baud, address, mask);
+                });
+                SetRelayIndicator(turnOn);
+                LogMessage($"Manual Relay Command: {(turnOn ? "ON" : "OFF")} (mask {mask}) on {port}");
+            }
+            catch (Exception ex) { LogMessage($"Relay Error: {ex.Message}"); }
         }
 
         public void InitializeDashboard(DeviceState state)
         {
             _dashboardState = state;
+
+            TxtDeviceName.Text = state.TabName;
+            TxtDeviceName.TextChanged += (s, e) =>
+            {
+                if (_dashboardState != null && !string.IsNullOrWhiteSpace(TxtDeviceName.Text))
+                    _dashboardState.TabName = TxtDeviceName.Text;
+            };
+            
+            state.PropertyChanged += (s, e) =>
+            {
+                if (e.PropertyName == nameof(DeviceState.TabName) && TxtDeviceName.Text != state.TabName)
+                    TxtDeviceName.Text = state.TabName;
+            };
+
             TxtIpAddress.TextChanged += (s, e) => 
             {
                 if (_dashboardState != null)
@@ -46,32 +99,151 @@ namespace SSHTester
             };
         }
 
+        public DeviceState? GetDashboardState() => _dashboardState;
+
+        public void SetCredentials(string ip, string user)
+        {
+            TxtIpAddress.Text = ip;
+            TxtUser.Text = user;
+        }
+
+        public async void StartTest()
+        {
+            if (string.IsNullOrWhiteSpace(TxtIpAddress.Text) || !BtnStart.IsEnabled) return;
+
+            TestConfig config = new TestConfig
+            {
+                Ip = TxtIpAddress.Text,
+                User = TxtUser.Text,
+                Password = ChkShowPass.IsChecked == true ? TxtPasswordVisible.Text : TxtPassword.Password,
+                SshKey = TxtSshKey.Text,
+                Cycles = int.TryParse(TxtCycles.Text, out int c) ? c : 0,
+                SshTimeout = int.TryParse(TxtTimeout.Text, out int t) ? t : 60,
+                WaitOnline = int.TryParse(TxtWaitOn.Text, out int wo) ? wo : 10,
+                WaitOffline = int.TryParse(TxtWaitOff.Text, out int wf) ? wf : 3,
+                PingCount = int.TryParse(TxtPingCnt.Text, out int pc) ? pc : 5,
+                PingInterval = double.TryParse(TxtPingInt.Text, out double pi) ? pi : 1.0,
+                RelayEnable = ChkRelayEnable.IsChecked ?? false,
+                RelayAutoRecover = ChkRelayAutoRecover.IsChecked ?? false,
+                RelayAutoRecoverSeconds = int.TryParse(TxtAutoRecoverSec.Text, out int ars) ? ars : 300,
+                RelayPort = TxtRelayPort.Text,
+                RelayBaudrate = int.TryParse(TxtRelayBaud.Text, out int rb) ? rb : 38400,
+                RelayAddress = int.TryParse(TxtRelayAddr.Text, out int radr) ? radr : 1,
+                RelayMask = TxtRelayMask.Text,
+                RelayOffMs = int.TryParse(TxtRelayOff.Text, out int roff) ? roff : 10000,
+                RelayOnMs = int.TryParse(TxtRelayOn.Text, out int ron) ? ron : 1000,
+                MountDevice = TxtStressMount.Text,
+                TargetDirectory = TxtStressDir.Text,
+                DiskSizeGb = TxtStressSize.Text.Replace(',', '.'),
+                ExpectedImeis = TxtModemImei.Text,
+                ModemCount = TxtModemCount.Text,
+                CustomFile = TxtCustomFile.Text
+            };
+
+            if (RbModem.IsChecked == true) config.Mode = "modem";
+            else if (RbSsd1Gb.IsChecked == true) config.Mode = "ssd1gb";
+            else if (RbFsck.IsChecked == true) config.Mode = "fsck";
+            else if (RbCustom.IsChecked == true) config.Mode = "custom";
+            else if (RbSsdContinuous.IsChecked == true) config.Mode = "continuous";
+            else config.Mode = "stress";
+
+            BtnStart.IsEnabled = false;
+            BtnStop.IsEnabled = true;
+            BtnPause.IsEnabled = true;
+            BtnApplyChanges.IsEnabled = true;
+            if (_dashboardState != null) _dashboardState.IsPaused = false;
+            BtnPause.Content = "Pause";
+
+            _activeConfig = config;
+            _engine = new TestEngine(config, LogMessage, UpdateStatus, UpdateStats, UpdateDevStatus, SetRelayIndicator, () => _dashboardState?.IsPaused ?? false);
+            
+            TxtAvgTime.Text = "TIME: 00:00:00";
+            _uiTimer.Start();
+
+            await _engine.StartAsync();
+
+            _uiTimer.Stop();
+            BtnStart.IsEnabled = true;
+            BtnStop.IsEnabled = false;
+            BtnPause.IsEnabled = false;
+            BtnApplyChanges.IsEnabled = false;
+            _activeConfig = null;
+            if (_dashboardState != null) _dashboardState.IsPaused = false;
+            BtnPause.Content = "Pause";
+        }
+
+        public void StopTest()
+        {
+            if (_dashboardState != null) _dashboardState.IsPaused = false;
+            BtnPause.Content = "Pause";
+            _engine?.Stop();
+            BtnStop.IsEnabled = false;
+        }
+
+        private void BtnPause_Click(object sender, RoutedEventArgs e)
+        {
+            if (_dashboardState == null) return;
+            _dashboardState.IsPaused = !_dashboardState.IsPaused;
+            BtnPause.Content = _dashboardState.IsPaused ? "Resume" : "Pause";
+            LogMessage(_dashboardState.IsPaused
+                ? "Pause requested - will pause once the current step finishes."
+                : "Resume requested.");
+        }
+
+        private void BtnApplyChanges_Click(object sender, RoutedEventArgs e)
+        {
+            if (_activeConfig == null)
+            {
+                LogMessage("Apply Changes: no test is currently running.");
+                return;
+            }
+
+            _activeConfig.Cycles = int.TryParse(TxtCycles.Text, out int c) ? c : _activeConfig.Cycles;
+            _activeConfig.SshTimeout = int.TryParse(TxtTimeout.Text, out int t) ? t : _activeConfig.SshTimeout;
+            _activeConfig.WaitOnline = int.TryParse(TxtWaitOn.Text, out int wo) ? wo : _activeConfig.WaitOnline;
+            _activeConfig.WaitOffline = int.TryParse(TxtWaitOff.Text, out int wf) ? wf : _activeConfig.WaitOffline;
+            _activeConfig.PingCount = int.TryParse(TxtPingCnt.Text, out int pc) ? pc : _activeConfig.PingCount;
+            _activeConfig.PingInterval = double.TryParse(TxtPingInt.Text, out double pi) ? pi : _activeConfig.PingInterval;
+
+            _activeConfig.RelayEnable = ChkRelayEnable.IsChecked ?? _activeConfig.RelayEnable;
+            _activeConfig.RelayAutoRecover = ChkRelayAutoRecover.IsChecked ?? _activeConfig.RelayAutoRecover;
+            _activeConfig.RelayAutoRecoverSeconds = int.TryParse(TxtAutoRecoverSec.Text, out int ars) ? ars : _activeConfig.RelayAutoRecoverSeconds;
+            _activeConfig.RelayPort = TxtRelayPort.Text;
+            _activeConfig.RelayBaudrate = int.TryParse(TxtRelayBaud.Text, out int rb) ? rb : _activeConfig.RelayBaudrate;
+            _activeConfig.RelayAddress = int.TryParse(TxtRelayAddr.Text, out int radr) ? radr : _activeConfig.RelayAddress;
+            _activeConfig.RelayMask = TxtRelayMask.Text;
+            _activeConfig.RelayOffMs = int.TryParse(TxtRelayOff.Text, out int roff) ? roff : _activeConfig.RelayOffMs;
+            _activeConfig.RelayOnMs = int.TryParse(TxtRelayOn.Text, out int ron) ? ron : _activeConfig.RelayOnMs;
+
+            _activeConfig.MountDevice = TxtStressMount.Text;
+            _activeConfig.TargetDirectory = TxtStressDir.Text;
+            _activeConfig.DiskSizeGb = TxtStressSize.Text.Replace(',', '.');
+            _activeConfig.ExpectedImeis = TxtModemImei.Text;
+            _activeConfig.ModemCount = TxtModemCount.Text;
+            _activeConfig.CustomFile = TxtCustomFile.Text;
+
+            if (RbModem.IsChecked == true) _activeConfig.Mode = "modem";
+            else if (RbSsd1Gb.IsChecked == true) _activeConfig.Mode = "ssd1gb";
+            else if (RbFsck.IsChecked == true) _activeConfig.Mode = "fsck";
+            else if (RbCustom.IsChecked == true) _activeConfig.Mode = "custom";
+            else if (RbSsdContinuous.IsChecked == true) _activeConfig.Mode = "continuous";
+            else _activeConfig.Mode = "stress";
+
+            LogMessage("Configuration applied to the running test. (IP and SSH user/password are not changed live. Switching to/from Continuous mode requires restart.)");
+        }
+
         private void ToggleParams(object sender, RoutedEventArgs e)
         {
             if (PanelStress == null || PanelModem == null || PanelCustom == null) return;
-
             PanelStress.Visibility = Visibility.Collapsed;
             PanelModem.Visibility = Visibility.Collapsed;
             PanelCustom.Visibility = Visibility.Collapsed;
             PanelStressSize.Visibility = Visibility.Collapsed;
 
-            if (RbSsdStress?.IsChecked == true)
-            {
-                PanelStress.Visibility = Visibility.Visible;
-                PanelStressSize.Visibility = Visibility.Visible;
-            }
-            else if (RbSsd1Gb?.IsChecked == true || RbFsck?.IsChecked == true)
-            {
-                PanelStress.Visibility = Visibility.Visible;
-            }
-            else if (RbModem?.IsChecked == true)
-            {
-                PanelModem.Visibility = Visibility.Visible;
-            }
-            else if (RbCustom?.IsChecked == true)
-            {
-                PanelCustom.Visibility = Visibility.Visible;
-            }
+            if (RbSsdStress?.IsChecked == true || RbSsdContinuous?.IsChecked == true) { PanelStress.Visibility = Visibility.Visible; PanelStressSize.Visibility = Visibility.Visible; }
+            else if (RbSsd1Gb?.IsChecked == true || RbFsck?.IsChecked == true) { PanelStress.Visibility = Visibility.Visible; }
+            else if (RbModem?.IsChecked == true) { PanelModem.Visibility = Visibility.Visible; }
+            else if (RbCustom?.IsChecked == true) { PanelCustom.Visibility = Visibility.Visible; }
         }
 
         private void BtnBrowse_Click(object sender, RoutedEventArgs e)
@@ -106,119 +278,137 @@ namespace SSHTester
         {
             Dispatcher.Invoke(() => 
             {
-                if (isOn == true)
-                {
-                    TxtRelayStatusTxt.Text = "RELAY: ON";
-                    TxtRelayStatusTxt.Foreground = Brushes.MediumSeaGreen;
-                }
-                else if (isOn == false)
-                {
-                    TxtRelayStatusTxt.Text = "RELAY: OFF";
-                    TxtRelayStatusTxt.Foreground = Brushes.Crimson;
-                }
-                else
-                {
-                    TxtRelayStatusTxt.Text = "RELAY: UNK";
-                    TxtRelayStatusTxt.Foreground = Brushes.SlateGray;
-                }
+                if (isOn == true) { TxtRelayStatusTxt.Text = "RELAY: ON"; TxtRelayStatusTxt.Foreground = Brushes.MediumSeaGreen; }
+                else if (isOn == false) { TxtRelayStatusTxt.Text = "RELAY: OFF"; TxtRelayStatusTxt.Foreground = Brushes.Crimson; }
+                else { TxtRelayStatusTxt.Text = "RELAY: UNK"; TxtRelayStatusTxt.Foreground = Brushes.SlateGray; }
             });
         }
 
-        private void SendManualRelay(byte[] payload)
+        private void SendManualRelay(bool turnOn, string port, int baud, int address, int mask)
         {
             try
             {
-                int baud = int.TryParse(TxtRelayBaud.Text, out int rb) ? rb : 38400;
-                RelayController.SendRelayCommand(TxtRelayPort.Text, baud, payload);
-                SetRelayIndicator(payload[0] == 0xFF);
-                LogMessage($"Manual Relay Command: {(payload[0] == 0xFF ? "ON" : "OFF")} on {TxtRelayPort.Text}");
+                if (turnOn) RelayController.TurnOn(port, baud, address, mask);
+                else RelayController.TurnOff(port, baud, address, mask);
+                SetRelayIndicator(turnOn);
+                LogMessage($"Manual Relay Command: {(turnOn ? "ON" : "OFF")} (mask {mask}) on {port}");
             }
-            catch (Exception ex)
-            {
-                LogMessage($"Relay Error: {ex.Message}");
-            }
+            catch (Exception ex) { LogMessage($"Relay Error: {ex.Message}"); }
         }
 
         private async void BtnRelayCycle_Click(object sender, RoutedEventArgs e)
         {
             BtnRelayCycle.IsEnabled = false;
-            int offMs = int.TryParse(TxtRelayOff.Text, out int roff) ? roff : 10000;
             
+            var (port, baud, address, mask) = CaptureRelayUiValues();
+            int offMs = int.TryParse(TxtRelayOff.Text, out int roff) ? roff : 10000;
             await Task.Run(() => 
             {
-                SendManualRelay(new byte[] { 0x00 });
+                SendManualRelay(false, port, baud, address, mask);
                 System.Threading.Thread.Sleep(offMs);
-                SendManualRelay(new byte[] { 0xFF });
+                SendManualRelay(true, port, baud, address, mask);
             });
-            
             BtnRelayCycle.IsEnabled = true;
         }
 
-        private async void BtnStart_Click(object sender, RoutedEventArgs e)
+        private Dictionary<string, string> BuildProfileDict()
         {
-            if (string.IsNullOrWhiteSpace(TxtIpAddress.Text)) return;
+            string mode = RbModem.IsChecked == true ? "modem"
+                : RbSsd1Gb.IsChecked == true ? "ssd1gb"
+                : RbFsck.IsChecked == true ? "fsck"
+                : RbCustom.IsChecked == true ? "custom"
+                : RbSsdContinuous.IsChecked == true ? "continuous"
+                : "stress";
 
-            TestConfig config = new TestConfig
+            return new Dictionary<string, string>
             {
-                Ip = TxtIpAddress.Text,
-                User = TxtUser.Text,
-                Password = ChkShowPass.IsChecked == true ? TxtPasswordVisible.Text : TxtPassword.Password,
-                SshKey = TxtSshKey.Text,
-                Cycles = int.TryParse(TxtCycles.Text, out int c) ? c : 0,
-                SshTimeout = int.TryParse(TxtTimeout.Text, out int t) ? t : 60,
-                WaitOnline = int.TryParse(TxtWaitOn.Text, out int wo) ? wo : 10,
-                WaitOffline = int.TryParse(TxtWaitOff.Text, out int wf) ? wf : 3,
-                PingCount = int.TryParse(TxtPingCnt.Text, out int pc) ? pc : 5,
-                PingInterval = double.TryParse(TxtPingInt.Text, out double pi) ? pi : 1.0,
-                RelayEnable = ChkRelayEnable.IsChecked ?? false,
-                RelayAutoRecover = ChkRelayAutoRecover.IsChecked ?? false,
-                RelayAutoRecoverSeconds = int.TryParse(TxtAutoRecoverSec.Text, out int ars) ? ars : 300,
-                RelayPort = TxtRelayPort.Text,
-                RelayBaudrate = int.TryParse(TxtRelayBaud.Text, out int rb) ? rb : 38400,
-                RelayMask = TxtRelayMask.Text,
-                RelayOffMs = int.TryParse(TxtRelayOff.Text, out int roff) ? roff : 10000,
-                RelayOnMs = int.TryParse(TxtRelayOn.Text, out int ron) ? ron : 1000,
-                MountDevice = TxtStressMount.Text,
-                TargetDirectory = TxtStressDir.Text,
-                DiskSizeGb = TxtStressSize.Text.Replace(',', '.'),
-                ExpectedImeis = TxtModemImei.Text,
-                ModemCount = TxtModemCount.Text,
-                CustomFile = TxtCustomFile.Text
+                { "Ip", TxtIpAddress.Text },
+                { "User", TxtUser.Text },
+                { "SshKey", TxtSshKey.Text },
+                { "Cycles", TxtCycles.Text },
+                { "Timeout", TxtTimeout.Text },
+                { "WaitOn", TxtWaitOn.Text },
+                { "WaitOff", TxtWaitOff.Text },
+                { "PingCnt", TxtPingCnt.Text },
+                { "PingInt", TxtPingInt.Text },
+                { "RelayEnable", (ChkRelayEnable.IsChecked ?? false).ToString() },
+                { "RelayAutoRecover", (ChkRelayAutoRecover.IsChecked ?? false).ToString() },
+                { "AutoRecoverSec", TxtAutoRecoverSec.Text },
+                { "RelayPort", TxtRelayPort.Text },
+                { "RelayBaud", TxtRelayBaud.Text },
+                { "RelayAddr", TxtRelayAddr.Text },
+                { "RelayMask", TxtRelayMask.Text },
+                { "RelayOff", TxtRelayOff.Text },
+                { "RelayOn", TxtRelayOn.Text },
+                { "StressMount", TxtStressMount.Text },
+                { "StressDir", TxtStressDir.Text },
+                { "StressSize", TxtStressSize.Text },
+                { "ModemImei", TxtModemImei.Text },
+                { "ModemCount", TxtModemCount.Text },
+                { "CustomFile", TxtCustomFile.Text },
+                { "Mode", mode }
             };
-
-            if (RbModem.IsChecked == true) config.Mode = "modem";
-            else if (RbSsd1Gb.IsChecked == true) config.Mode = "ssd1gb";
-            else if (RbFsck.IsChecked == true) config.Mode = "fsck";
-            else if (RbCustom.IsChecked == true) config.Mode = "custom";
-            else config.Mode = "stress";
-
-            BtnStart.IsEnabled = false;
-            BtnStop.IsEnabled = true;
-
-            _engine = new TestEngine(config, LogMessage, UpdateStatus, UpdateStats, UpdateDevStatus, SetRelayIndicator);
-            await _engine.StartAsync();
-
-            BtnStart.IsEnabled = true;
-            BtnStop.IsEnabled = false;
         }
 
-        private void BtnStop_Click(object sender, RoutedEventArgs e)
+        private void ApplyProfileDict(Dictionary<string, string> dict)
         {
-            _engine?.Stop();
-            BtnStop.IsEnabled = false;
+            void Set(string key, Action<string> setter)
+            {
+                if (dict.TryGetValue(key, out var v)) setter(v);
+            }
+
+            Set("Ip", v => TxtIpAddress.Text = v);
+            Set("User", v => TxtUser.Text = v);
+            Set("SshKey", v => TxtSshKey.Text = v);
+            Set("Cycles", v => TxtCycles.Text = v);
+            Set("Timeout", v => TxtTimeout.Text = v);
+            Set("WaitOn", v => TxtWaitOn.Text = v);
+            Set("WaitOff", v => TxtWaitOff.Text = v);
+            Set("PingCnt", v => TxtPingCnt.Text = v);
+            Set("PingInt", v => TxtPingInt.Text = v);
+            Set("RelayEnable", v => ChkRelayEnable.IsChecked = v == "True");
+            Set("RelayAutoRecover", v => ChkRelayAutoRecover.IsChecked = v == "True");
+            Set("AutoRecoverSec", v => TxtAutoRecoverSec.Text = v);
+            Set("RelayPort", v => TxtRelayPort.Text = v);
+            Set("RelayBaud", v => TxtRelayBaud.Text = v);
+            Set("RelayAddr", v => TxtRelayAddr.Text = v);
+            Set("RelayMask", v => TxtRelayMask.Text = v);
+            Set("RelayOff", v => TxtRelayOff.Text = v);
+            Set("RelayOn", v => TxtRelayOn.Text = v);
+            Set("StressMount", v => TxtStressMount.Text = v);
+            Set("StressDir", v => TxtStressDir.Text = v);
+            Set("StressSize", v => TxtStressSize.Text = v);
+            Set("ModemImei", v => TxtModemImei.Text = v);
+            Set("ModemCount", v => TxtModemCount.Text = v);
+            Set("CustomFile", v => TxtCustomFile.Text = v);
+
+            if (dict.TryGetValue("Mode", out var mode))
+            {
+                switch (mode)
+                {
+                    case "modem": RbModem.IsChecked = true; break;
+                    case "ssd1gb": RbSsd1Gb.IsChecked = true; break;
+                    case "fsck": RbFsck.IsChecked = true; break;
+                    case "custom": RbCustom.IsChecked = true; break;
+                    case "continuous": RbSsdContinuous.IsChecked = true; break;
+                    default: RbSsdStress.IsChecked = true; break;
+                }
+                ToggleParams(this, new RoutedEventArgs());
+            }
         }
 
         private void BtnSaveProfile_Click(object sender, RoutedEventArgs e)
         {
-            SaveFileDialog sfd = new SaveFileDialog { Filter = "JSON Profile (*.json)|*.json" };
+            SaveFileDialog sfd = new SaveFileDialog
+            {
+                Filter = "JSON Profile (*.json)|*.json",
+                FileName = $"{(string.IsNullOrWhiteSpace(TxtDeviceName.Text) ? "device" : TxtDeviceName.Text)}_profile.json"
+            };
             if (sfd.ShowDialog() == true)
             {
-                var dict = new Dictionary<string, string>
-                {
-                    { "Ip", TxtIpAddress.Text }, { "User", TxtUser.Text }, { "Cycles", TxtCycles.Text },
-                    { "WaitOn", TxtWaitOn.Text }, { "WaitOff", TxtWaitOff.Text }
-                };
-                File.WriteAllText(sfd.FileName, JsonSerializer.Serialize(dict));
+                var dict = BuildProfileDict();
+                File.WriteAllText(sfd.FileName, JsonSerializer.Serialize(dict, new JsonSerializerOptions { WriteIndented = true }));
+                LogMessage($"Profile saved to {sfd.FileName} (password is not stored in the profile).");
             }
         }
 
@@ -227,12 +417,18 @@ namespace SSHTester
             OpenFileDialog ofd = new OpenFileDialog { Filter = "JSON Profile (*.json)|*.json" };
             if (ofd.ShowDialog() == true)
             {
-                var dict = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(ofd.FileName));
-                if (dict != null)
+                try
                 {
-                    if (dict.ContainsKey("Ip")) TxtIpAddress.Text = dict["Ip"];
-                    if (dict.ContainsKey("User")) TxtUser.Text = dict["User"];
-                    if (dict.ContainsKey("Cycles")) TxtCycles.Text = dict["Cycles"];
+                    var dict = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(ofd.FileName));
+                    if (dict != null)
+                    {
+                        ApplyProfileDict(dict);
+                        LogMessage($"Profile loaded from {ofd.FileName}.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogMessage($"Failed to load profile: {ex.Message}");
                 }
             }
         }
@@ -243,12 +439,34 @@ namespace SSHTester
             if (sfd.ShowDialog() == true) File.WriteAllText(sfd.FileName, TxtConsole.Text);
         }
 
+        private void BtnExportCsv_Click(object sender, RoutedEventArgs e)
+        {
+            SaveFileDialog sfd = new SaveFileDialog
+            {
+                Filter = "CSV files (*.csv)|*.csv",
+                FileName = $"{(string.IsNullOrWhiteSpace(TxtDeviceName.Text) ? "device" : TxtDeviceName.Text)}_report.csv"
+            };
+            if (sfd.ShowDialog() == true)
+            {
+                var sb = new StringBuilder();
+                sb.AppendLine("TabName;IP;Status;DevState;Success;Fail;Total");
+                sb.AppendLine($"{TxtDeviceName.Text};{TxtIpAddress.Text};{TxtStatus.Text};{_dashboardState?.DevState};{_succCount};{_failCount};{_totalCount}");
+                File.WriteAllText(sfd.FileName, sb.ToString());
+                LogMessage($"CSV exported to {sfd.FileName}.");
+            }
+        }
+
         private void LogMessage(string message)
         {
             Dispatcher.Invoke(() =>
             {
                 TxtConsole.AppendText($"{DateTime.Now:yyyy-MM-dd HH:mm:ss,fff}: {message}\n");
                 TxtConsole.ScrollToEnd();
+
+                if (message.Contains("Error", StringComparison.OrdinalIgnoreCase) || message.Contains("Fail", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (Window.GetWindow(this) is MainWindow mw) mw.AddWarning($"{_dashboardState?.TabName}: {message}");
+                }
             });
         }
 
@@ -258,75 +476,28 @@ namespace SSHTester
             { 
                 TxtStatus.Text = message; 
                 PbStatus.Value = progress; 
-                
                 if (_dashboardState != null) _dashboardState.Status = message;
             });
         }
 
         private void UpdatePieChart(int success, int fail)
         {
-            PieChartCanvas.Children.Clear();
-            double center = 22.5;
-            double radius = 22.5;
             int total = success + fail;
-
-            // Pokud testy ještě nezačaly (total je 0), vykreslí se šedý kruh
             if (total == 0)
             {
-                var el = new System.Windows.Shapes.Ellipse { Width = radius * 2, Height = radius * 2, Fill = Brushes.SlateGray };
-                Canvas.SetLeft(el, 0); Canvas.SetTop(el, 0);
-                PieChartCanvas.Children.Add(el);
+                LocalChartBg.Stroke = Brushes.SlateGray;
+                LocalChartFg.Stroke = Brushes.Transparent;
+                LocalChartFg.StrokeDashArray = new DoubleCollection { 0, 1000 };
                 return;
             }
 
-            // Pokud proběhly testy, ale je 0 chyb (100% úspěšnost), vykreslí se plný zelený kruh
-            if (fail == 0)
-            {
-                var el = new System.Windows.Shapes.Ellipse { Width = radius * 2, Height = radius * 2, Fill = Brushes.MediumSeaGreen };
-                Canvas.SetLeft(el, 0); Canvas.SetTop(el, 0);
-                PieChartCanvas.Children.Add(el);
-                return;
-            }
-
-            double successAngle = (double)success / total * 360;
-
-            if (success > 0)
-            {
-                DrawPieSlice(center, center, radius, 0, successAngle, Brushes.MediumSeaGreen);
-            }
-            if (fail > 0)
-            {
-                DrawPieSlice(center, center, radius, successAngle, 360, Brushes.Crimson);
-            }
-        }
-
-        private void DrawPieSlice(double cx, double cy, double r, double startAngleDeg, double endAngleDeg, Brush fill)
-        {
-            if (Math.Abs(endAngleDeg - startAngleDeg - 360) < 0.01)
-            {
-                var el = new System.Windows.Shapes.Ellipse { Width = r * 2, Height = r * 2, Fill = fill };
-                Canvas.SetLeft(el, cx - r); Canvas.SetTop(el, cy - r);
-                PieChartCanvas.Children.Add(el);
-                return;
-            }
-
-            double startRad = (startAngleDeg - 90) * Math.PI / 180;
-            double endRad = (endAngleDeg - 90) * Math.PI / 180;
-
-            Point startPoint = new Point(cx + r * Math.Cos(startRad), cy + r * Math.Sin(startRad));
-            Point endPoint = new Point(cx + r * Math.Cos(endRad), cy + r * Math.Sin(endRad));
-
-            bool isLargeArc = (endAngleDeg - startAngleDeg) > 180;
-
-            PathFigure fig = new PathFigure { StartPoint = new Point(cx, cy), IsClosed = true };
-            fig.Segments.Add(new LineSegment(startPoint, true));
-            fig.Segments.Add(new ArcSegment(endPoint, new Size(r, r), 0, isLargeArc, SweepDirection.Clockwise, true));
-
-            PathGeometry geom = new PathGeometry();
-            geom.Figures.Add(fig);
-
-            System.Windows.Shapes.Path path = new System.Windows.Shapes.Path { Fill = fill, Data = geom };
-            PieChartCanvas.Children.Add(path);
+            LocalChartBg.Stroke = Brushes.Crimson;
+            LocalChartFg.Stroke = Brushes.MediumSeaGreen;
+            
+            // Obvod kruhu o průměru 48 (Width/Height)
+            double circumference = 48 * Math.PI; 
+            double successDash = ((double)success / total) * circumference;
+            LocalChartFg.StrokeDashArray = new DoubleCollection { successDash, circumference };
         }
 
         private void UpdateStats(bool success, double timeSeconds, int cycle)
@@ -335,24 +506,23 @@ namespace SSHTester
             {
                 _totalCount++;
                 if (success) _succCount++; else _failCount++;
-                _totalSeconds += timeSeconds;
 
                 TxtSucc.Text = $"SUCCESS: {_succCount}";
                 TxtFail.Text = $"FAIL: {_failCount}";
                 TxtTotal.Text = $"TOTAL: {_totalCount}";
                 UpdatePieChart(_succCount, _failCount);
 
-                TimeSpan t = TimeSpan.FromSeconds(_totalSeconds / _totalCount);
-                TxtAvgTime.Text = $"AVG TIME: {t:hh\\:mm\\:ss}";
+                if (!success && Window.GetWindow(this) is MainWindow mw) mw.AddWarning($"{_dashboardState?.TabName}: Test Cycle {cycle} Failed.");
 
                 if (_dashboardState != null)
                 {
                     string targetCycles = TxtCycles.Text == "0" ? "∞" : TxtCycles.Text;
                     _dashboardState.Cycles = $"Cycles: {_totalCount} / {targetCycles}";
-                    _dashboardState.ChartColor = success ? Brushes.MediumSeaGreen : Brushes.Crimson;
+                    _dashboardState.UpdateChart(_succCount, _failCount);
                 }
             });
         }
+        
         private void UpdateDevStatus(string status)
         {
             Dispatcher.Invoke(() =>

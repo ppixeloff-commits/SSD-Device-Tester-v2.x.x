@@ -1,63 +1,264 @@
+using System;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
+using System.Windows.Input;
+using System.Windows.Media;
+using Microsoft.Win32;
 
 namespace SSHTester
 {
-    public partial class MainWindow : Window
+    public partial class MainWindow : Window, INotifyPropertyChanged
     {
         private int _tabCounter = 0;
         public ObservableCollection<DeviceState> Devices { get; set; } = new ObservableCollection<DeviceState>();
+        public ObservableCollection<string> GlobalWarnings { get; set; } = new ObservableCollection<string>();
+        
+        private ICollectionView _devicesView;
+
+        public int TotalDevices => Devices.Count;
+        public int OnlineDevices => Devices.Count(d => d.DevState == "Online");
+        public string GlobalSuccessRate 
+        {
+            get
+            {
+                int totalSucc = Devices.Sum(d => d.SuccessCount);
+                int totalFail = Devices.Sum(d => d.FailCount);
+                int total = totalSucc + totalFail;
+                return total == 0 ? "0%" : $"{(totalSucc * 100.0 / total):0.##}%";
+            }
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
 
         public MainWindow()
         {
             InitializeComponent();
-            DashboardGrid.ItemsSource = Devices;
+            DataContext = this;
+            
+            _devicesView = CollectionViewSource.GetDefaultView(Devices);
+            _devicesView.Filter = FilterDevices;
+            
+            Devices.CollectionChanged += (s, e) => UpdateAggregateStats();
             AddNewTab();
         }
 
-        private void AddDevice_Click(object sender, RoutedEventArgs e)
+        private void MainTabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            AddNewTab();
-        }
+            if (e.OriginalSource != MainTabControl) return;
 
-        private void CloseTab_Click(object sender, RoutedEventArgs e)
-        {
-            if (MainTabControl.SelectedItem is TabItem selectedTab && selectedTab.Header.ToString() != "Global Dashboard")
+            if (MainTabControl.SelectedItem == AddTabButton)
             {
-                MainTabControl.Items.Remove(selectedTab);
+                Dispatcher.BeginInvoke(new Action(() => AddNewTab()));
+            }
+        }
+
+        private void AddNewTab(string ip = "", string user = "root")
+        {
+            _tabCounter++;
+            var deviceState = new DeviceState { TabName = $"Device {_tabCounter}", IpAddress = string.IsNullOrWhiteSpace(ip) ? "Unknown" : ip };
+            deviceState.PropertyChanged += DeviceState_PropertyChanged;
+            Devices.Add(deviceState);
+
+            var newTab = new TabItem { FontWeight = FontWeights.SemiBold };
+            
+            var headerPanel = new StackPanel { Orientation = Orientation.Horizontal };
+            var headerText = new TextBlock { Text = deviceState.TabName, VerticalAlignment = VerticalAlignment.Center };
+            
+            // Nahrazení klasického tlačítka čistým textblockem, aby nevznikalo ošklivé ohraničení defaultního WPF Buttonu
+            var closeButton = new TextBlock
+            {
+                Text = "✕",
+                Margin = new Thickness(12, 0, -4, 0), // Odsazení víc doprava
+                Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184)), // Pěkná šedá #94a3b8
+                FontSize = 11,
+                FontWeight = FontWeights.Bold,
+                Cursor = Cursors.Hand,
+                VerticalAlignment = VerticalAlignment.Center,
+                ToolTip = "Zavřít panel"
+            };
+
+            // Čistý vizuální efekt při najetí myší
+            closeButton.MouseEnter += (s, ev) => closeButton.Foreground = Brushes.Crimson;
+            closeButton.MouseLeave += (s, ev) => closeButton.Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184));
+
+            closeButton.MouseLeftButtonUp += (s, ev) => 
+            {
+                ev.Handled = true;
+                CloseDeviceTab(newTab, deviceState);
+            };
+
+            headerPanel.Children.Add(headerText);
+            headerPanel.Children.Add(closeButton);
+            newTab.Header = headerPanel;
+
+            var deviceTabControl = new DeviceTabControl();
+            deviceTabControl.InitializeDashboard(deviceState);
+            
+            // Záložka má nyní horní okraj jako odsazení od lišty (Margin 0,10,0,0)
+            deviceTabControl.Margin = new Thickness(0, 10, 0, 0);
+
+            if (!string.IsNullOrWhiteSpace(ip))
+            {
+                deviceTabControl.SetCredentials(ip, user);
+            }
+
+            newTab.Content = deviceTabControl;
+            
+            int insertIndex = MainTabControl.Items.Count - 1;
+            MainTabControl.Items.Insert(insertIndex, newTab);
+            MainTabControl.SelectedItem = newTab;
+        }
+
+        private void CloseDeviceTab(TabItem tabItem, DeviceState deviceState)
+        {
+            if (MainTabControl.SelectedItem == tabItem)
+            {
+                MainTabControl.SelectedIndex = 0;
+            }
+
+            deviceState.PropertyChanged -= DeviceState_PropertyChanged;
+            Devices.Remove(deviceState);
+            MainTabControl.Items.Remove(tabItem);
+        }
+
+        private void DeviceState_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(DeviceState.TabName))
+            {
+                var state = sender as DeviceState;
+                if (state == null) return;
                 
-                // Odstranění ze seznamu v Dashboardu
-                var deviceToRemove = Devices.FirstOrDefault(d => d.TabName == selectedTab.Header.ToString());
-                if (deviceToRemove != null)
+                foreach (var item in MainTabControl.Items)
                 {
-                    Devices.Remove(deviceToRemove);
+                    if (item is TabItem tab && tab.Content is DeviceTabControl dtc && dtc.GetDashboardState() == state)
+                    {
+                        if (tab.Header is StackPanel sp && sp.Children.Count > 0 && sp.Children[0] is TextBlock tb)
+                        {
+                            tb.Text = state.TabName;
+                        }
+                        break;
+                    }
+                }
+            }
+            if (e.PropertyName == nameof(DeviceState.DevState) || e.PropertyName == nameof(DeviceState.SuccessCount) || e.PropertyName == nameof(DeviceState.FailCount))
+            {
+                UpdateAggregateStats();
+            }
+        }
+
+        private void UpdateAggregateStats()
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TotalDevices)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(OnlineDevices)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GlobalSuccessRate)));
+            _devicesView.Refresh();
+        }
+
+        private void FilterChanged(object sender, RoutedEventArgs e) => _devicesView?.Refresh();
+
+        private bool FilterDevices(object item)
+        {
+            if (item is DeviceState device)
+            {
+                bool matchSearch = string.IsNullOrWhiteSpace(TxtSearch?.Text) || 
+                                   device.TabName.Contains(TxtSearch.Text, StringComparison.OrdinalIgnoreCase) || 
+                                   device.IpAddress.Contains(TxtSearch.Text, StringComparison.OrdinalIgnoreCase);
+                
+                bool matchFilter = true;
+                if (CmbFilter != null)
+                {
+                    if (CmbFilter.SelectedIndex == 1) matchFilter = device.DevState == "Online";
+                    if (CmbFilter.SelectedIndex == 2) matchFilter = device.DevState == "Offline";
+                    if (CmbFilter.SelectedIndex == 3) matchFilter = device.FailCount > 0;
+                }
+                
+                return matchSearch && matchFilter;
+            }
+            return false;
+        }
+
+        private void Tile_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is Border border && border.DataContext is DeviceState state)
+            {
+                foreach (var item in MainTabControl.Items)
+                {
+                    if (item is TabItem tab && tab.Content is DeviceTabControl dtc && dtc.GetDashboardState() == state)
+                    {
+                        MainTabControl.SelectedItem = tab;
+                        break;
+                    }
                 }
             }
         }
 
-        private void AddNewTab()
+        private void TilePause_Click(object sender, RoutedEventArgs e)
         {
-            _tabCounter++;
-            string tabName = $"Device {_tabCounter}";
+            if (sender is Button btn && btn.DataContext is DeviceState state) state.IsPaused = !state.IsPaused;
+            e.Handled = true;
+        }
 
-            // Vytvoření nového datového řádku pro Dashboard
-            var deviceState = new DeviceState { TabName = tabName };
-            Devices.Add(deviceState);
+        private void TileNameBox_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            e.Handled = true;
+        }
 
-            var newTab = new TabItem
+        public void AddWarning(string message)
+        {
+            Dispatcher.Invoke(() => 
             {
-                Header = tabName,
-                FontWeight = FontWeights.Bold
-            };
+                GlobalWarnings.Insert(0, $"[{DateTime.Now:HH:mm:ss}] {message}");
+                if (GlobalWarnings.Count > 50) GlobalWarnings.RemoveAt(GlobalWarnings.Count - 1);
+            });
+        }
 
-            var deviceTabControl = new DeviceTabControl();
-            deviceTabControl.InitializeDashboard(deviceState); // Propojení záložky s řádkem
-            newTab.Content = deviceTabControl;
+        private void BtnClearWarnings_Click(object sender, RoutedEventArgs e) => GlobalWarnings.Clear();
 
-            MainTabControl.Items.Add(newTab);
-            MainTabControl.SelectedItem = newTab;
+        private void BtnStartAll_Click(object sender, RoutedEventArgs e)
+        {
+            foreach (var item in MainTabControl.Items)
+                if (item is TabItem tab && tab.Content is DeviceTabControl dtc) dtc.StartTest();
+        }
+
+        private void BtnStopAll_Click(object sender, RoutedEventArgs e)
+        {
+            foreach (var item in MainTabControl.Items)
+                if (item is TabItem tab && tab.Content is DeviceTabControl dtc) dtc.StopTest();
+        }
+
+        private void BtnImport_Click(object sender, RoutedEventArgs e)
+        {
+            OpenFileDialog ofd = new OpenFileDialog { Filter = "CSV files (*.csv)|*.csv" };
+            if (ofd.ShowDialog() == true)
+            {
+                foreach (var line in File.ReadAllLines(ofd.FileName))
+                {
+                    if (string.IsNullOrWhiteSpace(line)) continue;
+                    var parts = line.Split(';', ',');
+                    AddNewTab(parts[0], parts.Length > 1 ? parts[1] : "root");
+                }
+            }
+        }
+
+        private void BtnExportAll_Click(object sender, RoutedEventArgs e)
+        {
+            SaveFileDialog sfd = new SaveFileDialog { Filter = "CSV files (*.csv)|*.csv", FileName = "GlobalReport.csv" };
+            if (sfd.ShowDialog() == true)
+            {
+                StringBuilder sb = new StringBuilder();
+                sb.AppendLine("TabName;IP;Status;DevState;Success;Fail;Total");
+                foreach (var dev in Devices)
+                {
+                    sb.AppendLine($"{dev.TabName};{dev.IpAddress};{dev.Status};{dev.DevState};{dev.SuccessCount};{dev.FailCount};{dev.SuccessCount + dev.FailCount}");
+                }
+                File.WriteAllText(sfd.FileName, sb.ToString());
+            }
         }
     }
 }
