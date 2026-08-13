@@ -1,8 +1,19 @@
+using System;
 using System.ComponentModel;
 using System.Windows.Media;
 
 namespace SSHTester
 {
+    public static class ChartUtils
+    {
+        public static DoubleCollection CalculateDashArray(int success, int total, double width, double strokeThickness)
+        {
+            if (total == 0) return new DoubleCollection { 0, 1000 };
+            double circUnits = Math.PI * (width - strokeThickness) / strokeThickness;
+            return new DoubleCollection { ((double)success / total) * circUnits, 1000 };
+        }
+    }
+
     public class DeviceState : INotifyPropertyChanged
     {
         private string _tabName = "";
@@ -14,7 +25,7 @@ namespace SSHTester
         
         private Brush _chartFailColor = Brushes.SlateGray;
         private Brush _chartSuccessColor = Brushes.Transparent;
-        private DoubleCollection _successDashArray = new DoubleCollection { 0, 100.53 };
+        private DoubleCollection _successDashArray = new DoubleCollection { 0, 1000 };
         private bool _isPaused = false;
         
         private int _successCount = 0;
@@ -44,21 +55,19 @@ namespace SSHTester
             SuccessCount = success;
             FailCount = fail;
             int total = success + fail;
+            
             if (total == 0)
             {
                 ChartFailColor = Brushes.SlateGray;
                 ChartSuccessColor = Brushes.Transparent;
-                SuccessDashArray = new DoubleCollection { 0, 100.53 };
             }
             else
             {
                 ChartFailColor = Brushes.Crimson;
                 ChartSuccessColor = Brushes.MediumSeaGreen;
-                
-                double circumference = 100.53;
-                double successDash = ((double)success / total) * circumference;
-                SuccessDashArray = new DoubleCollection { successDash, circumference };
             }
+
+            SuccessDashArray = ChartUtils.CalculateDashArray(success, total, 28, 6);
         }
     }
 }

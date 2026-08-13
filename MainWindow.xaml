@@ -133,7 +133,6 @@
                                 </StackPanel>
                             </StackPanel>
                             
-                            <!-- Přidán Margin 0,0,30,0 na celý tento StackPanel, aby oddělil ComboBox od tlačítek -->
                             <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="35,0,30,0">
                                 <TextBox x:Name="TxtSearch" Style="{StaticResource ModernTextBox}" Width="220" TextChanged="FilterChanged" Margin="0,0,10,0" ToolTip="Search by IP or Name..."/>
                                 <ComboBox x:Name="CmbFilter" Width="140" SelectionChanged="FilterChanged" Padding="10,6" BorderBrush="#cbd5e1" Background="#ffffff" VerticalContentAlignment="Center">
@@ -144,12 +143,12 @@
                                 </ComboBox>
                             </StackPanel>
                             
-                            <!-- Jednotné odsazení (Margin="0,0,10,0") pro všechna tlačítka -->
+                            <!-- Upravená tlačítka pro Import/Export celých zařízení -->
                             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                                <Button Content="Start All" Style="{StaticResource ModernButton}" Background="#10b981" Margin="0,0,10,0" Click="BtnStartAll_Click"/>
-                                <Button Content="Stop All" Style="{StaticResource ModernButton}" Background="#ef4444" Margin="0,0,10,0" Click="BtnStopAll_Click"/>
-                                <Button Content="Import CSV" Style="{StaticResource ModernButton}" Background="#64748b" Margin="0,0,10,0" Click="BtnImport_Click"/>
-                                <Button Content="Export All" Style="{StaticResource ModernButton}" Background="#3b82f6" Click="BtnExportAll_Click"/>
+                                <Button Content="Start All" Style="{StaticResource ModernButton}" Background="#10b981" Margin="0,0,10,0" Click="BtnStartAll_Click" ToolTip="Start tests on all available devices"/>
+                                <Button Content="Stop All" Style="{StaticResource ModernButton}" Background="#ef4444" Margin="0,0,10,0" Click="BtnStopAll_Click" ToolTip="Stop all currently running tests"/>
+                                <Button Content="Import Devices" Style="{StaticResource ModernButton}" Background="#64748b" Margin="0,0,10,0" Click="BtnImportDevices_Click" ToolTip="Import multiple devices and their full configurations from a CSV file"/>
+                                <Button Content="Export Devices" Style="{StaticResource ModernButton}" Background="#3b82f6" Click="BtnExportDevices_Click" ToolTip="Export all devices and their full configurations to a CSV file"/>
                             </StackPanel>
                         </Grid>
 
@@ -158,7 +157,7 @@
                             <StackPanel>
                                 <Grid>
                                     <TextBlock Text="System Warnings" FontWeight="Bold" Foreground="#dc2626" FontSize="14" Margin="0,0,0,8"/>
-                                    <Button Content="Clear" HorizontalAlignment="Right" Background="Transparent" Foreground="#dc2626" BorderThickness="0" Cursor="Hand" Click="BtnClearWarnings_Click"/>
+                                    <Button Content="Clear" HorizontalAlignment="Right" Background="Transparent" Foreground="#dc2626" BorderThickness="0" Cursor="Hand" Click="BtnClearWarnings_Click" ToolTip="Clear warning history"/>
                                 </Grid>
                                 <ItemsControl ItemsSource="{Binding GlobalWarnings}">
                                     <ItemsControl.ItemTemplate>
@@ -178,7 +177,7 @@
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border Style="{StaticResource DeviceTileCard}" Width="310" MouseLeftButtonUp="Tile_MouseLeftButtonUp">
+                                    <Border Style="{StaticResource DeviceTileCard}" Width="310" MouseLeftButtonUp="Tile_MouseLeftButtonUp" ToolTip="Click to open this device's tab">
                                         <Grid>
                                             <Grid.RowDefinitions>
                                                 <RowDefinition Height="Auto"/>
@@ -237,7 +236,7 @@
                                                         Content="{Binding IsPaused, Converter={StaticResource BoolToPauseTextConverter}, FallbackValue='Pause'}" 
                                                         Style="{StaticResource ModernButton}" 
                                                         Background="#e2e8f0" Foreground="#334155" 
-                                                        Padding="12,6" FontSize="12" Click="TilePause_Click"/>
+                                                        Padding="12,6" FontSize="12" Click="TilePause_Click" ToolTip="Pause or resume testing for this device"/>
                                             </Grid>
                                         </Grid>
                                     </Border>
@@ -249,7 +248,7 @@
                 </ScrollViewer>
             </TabItem>
             
-            <TabItem x:Name="AddTabButton" ToolTip="Přidat nové zařízení">
+            <TabItem x:Name="AddTabButton" ToolTip="Add a new device">
                 <TabItem.Header>
                     <TextBlock Text="+" FontSize="20" FontWeight="Bold" Margin="0,-4,0,0" Foreground="#3b82f6"/>
                 </TabItem.Header>

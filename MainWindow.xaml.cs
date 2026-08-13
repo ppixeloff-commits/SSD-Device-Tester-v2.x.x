@@ -70,12 +70,11 @@ namespace SSHTester
             var headerPanel = new StackPanel { Orientation = Orientation.Horizontal };
             var headerText = new TextBlock { Text = deviceState.TabName, VerticalAlignment = VerticalAlignment.Center };
             
-            // Nahrazení klasického tlačítka čistým textblockem, aby nevznikalo ošklivé ohraničení defaultního WPF Buttonu
             var closeButton = new TextBlock
             {
                 Text = "✕",
-                Margin = new Thickness(12, 0, -4, 0), // Odsazení víc doprava
-                Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184)), // Pěkná šedá #94a3b8
+                Margin = new Thickness(12, 0, -4, 0),
+                Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184)),
                 FontSize = 11,
                 FontWeight = FontWeights.Bold,
                 Cursor = Cursors.Hand,
@@ -83,7 +82,6 @@ namespace SSHTester
                 ToolTip = "Zavřít panel"
             };
 
-            // Čistý vizuální efekt při najetí myší
             closeButton.MouseEnter += (s, ev) => closeButton.Foreground = Brushes.Crimson;
             closeButton.MouseLeave += (s, ev) => closeButton.Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184));
 
@@ -99,8 +97,6 @@ namespace SSHTester
 
             var deviceTabControl = new DeviceTabControl();
             deviceTabControl.InitializeDashboard(deviceState);
-            
-            // Záložka má nyní horní okraj jako odsazení od lišty (Margin 0,10,0,0)
             deviceTabControl.Margin = new Thickness(0, 10, 0, 0);
 
             if (!string.IsNullOrWhiteSpace(ip))
@@ -117,11 +113,7 @@ namespace SSHTester
 
         private void CloseDeviceTab(TabItem tabItem, DeviceState deviceState)
         {
-            if (MainTabControl.SelectedItem == tabItem)
-            {
-                MainTabControl.SelectedIndex = 0;
-            }
-
+            if (MainTabControl.SelectedItem == tabItem) MainTabControl.SelectedIndex = 0;
             deviceState.PropertyChanged -= DeviceState_PropertyChanged;
             Devices.Remove(deviceState);
             MainTabControl.Items.Remove(tabItem);
@@ -136,13 +128,17 @@ namespace SSHTester
                 
                 foreach (var item in MainTabControl.Items)
                 {
-                    if (item is TabItem tab && tab.Content is DeviceTabControl dtc && dtc.GetDashboardState() == state)
+                    if (item is TabItem tab && tab.Content is DeviceTabControl dtc)
                     {
-                        if (tab.Header is StackPanel sp && sp.Children.Count > 0 && sp.Children[0] is TextBlock tb)
+                        var dashState = dtc.GetDashboardState();
+                        if (dashState == state)
                         {
-                            tb.Text = state.TabName;
+                            if (tab.Header is StackPanel sp && sp.Children.Count > 0 && sp.Children[0] is TextBlock tb) 
+                            {
+                                tb.Text = state.TabName;
+                            }
+                            break;
                         }
-                        break;
                     }
                 }
             }
@@ -189,10 +185,14 @@ namespace SSHTester
             {
                 foreach (var item in MainTabControl.Items)
                 {
-                    if (item is TabItem tab && tab.Content is DeviceTabControl dtc && dtc.GetDashboardState() == state)
+                    if (item is TabItem tab && tab.Content is DeviceTabControl dtc)
                     {
-                        MainTabControl.SelectedItem = tab;
-                        break;
+                        var dashState = dtc.GetDashboardState();
+                        if (dashState == state)
+                        {
+                            MainTabControl.SelectedItem = tab;
+                            break;
+                        }
                     }
                 }
             }
@@ -204,10 +204,7 @@ namespace SSHTester
             e.Handled = true;
         }
 
-        private void TileNameBox_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
-        {
-            e.Handled = true;
-        }
+        private void TileNameBox_MouseLeftButtonUp(object sender, MouseButtonEventArgs e) => e.Handled = true;
 
         public void AddWarning(string message)
         {
@@ -222,42 +219,95 @@ namespace SSHTester
 
         private void BtnStartAll_Click(object sender, RoutedEventArgs e)
         {
-            foreach (var item in MainTabControl.Items)
-                if (item is TabItem tab && tab.Content is DeviceTabControl dtc) dtc.StartTest();
+            foreach (var item in MainTabControl.Items) if (item is TabItem tab && tab.Content is DeviceTabControl dtc) dtc.StartTest();
         }
 
         private void BtnStopAll_Click(object sender, RoutedEventArgs e)
         {
-            foreach (var item in MainTabControl.Items)
-                if (item is TabItem tab && tab.Content is DeviceTabControl dtc) dtc.StopTest();
+            foreach (var item in MainTabControl.Items) if (item is TabItem tab && tab.Content is DeviceTabControl dtc) dtc.StopTest();
         }
 
-        private void BtnImport_Click(object sender, RoutedEventArgs e)
+        private void BtnImportDevices_Click(object sender, RoutedEventArgs e)
         {
-            OpenFileDialog ofd = new OpenFileDialog { Filter = "CSV files (*.csv)|*.csv" };
+            OpenFileDialog ofd = new OpenFileDialog { Filter = "CSV Config Files (*.csv)|*.csv" };
             if (ofd.ShowDialog() == true)
             {
-                foreach (var line in File.ReadAllLines(ofd.FileName))
+                try
                 {
-                    if (string.IsNullOrWhiteSpace(line)) continue;
-                    var parts = line.Split(';', ',');
-                    AddNewTab(parts[0], parts.Length > 1 ? parts[1] : "root");
+                    var lines = File.ReadAllLines(ofd.FileName);
+                    if (lines.Length <= 1) return;
+                    
+                    var headers = lines[0].Split(';');
+                    for (int i = 1; i < lines.Length; i++)
+                    {
+                        if (string.IsNullOrWhiteSpace(lines[i])) continue;
+                        var vals = lines[i].Split(';');
+                        
+                        // První sloupec je vždy název záložky (Device Name)
+                        string tabName = vals.Length > 0 ? vals[0] : $"Device {_tabCounter + 1}";
+                        
+                        var dict = new System.Collections.Generic.Dictionary<string, string>();
+                        for (int j = 1; j < headers.Length && j < vals.Length; j++)
+                        {
+                            dict[headers[j]] = vals[j];
+                        }
+                        
+                        AddNewTab(dict.ContainsKey("Ip") ? dict["Ip"] : "", dict.ContainsKey("User") ? dict["User"] : "root");
+                        
+                        var newTab = MainTabControl.Items[MainTabControl.Items.Count - 2] as TabItem;
+                        if (newTab?.Content is DeviceTabControl dtc)
+                        {
+                            dtc.ImportConfigDict(dict);
+                            
+                            var state = dtc.GetDashboardState();
+                            if (state != null)
+                            {
+                                state.TabName = tabName;
+                            }
+                        }
+                    }
+                    AddWarning($"CSV import successful. Loaded {lines.Length - 1} devices.");
+                }
+                catch (Exception ex)
+                {
+                    AddWarning($"CSV import failed: {ex.Message}");
                 }
             }
         }
 
-        private void BtnExportAll_Click(object sender, RoutedEventArgs e)
+        private void BtnExportDevices_Click(object sender, RoutedEventArgs e)
         {
-            SaveFileDialog sfd = new SaveFileDialog { Filter = "CSV files (*.csv)|*.csv", FileName = "GlobalReport.csv" };
+            SaveFileDialog sfd = new SaveFileDialog { Filter = "CSV Config Files (*.csv)|*.csv", FileName = "DevicesConfig.csv" };
             if (sfd.ShowDialog() == true)
             {
-                StringBuilder sb = new StringBuilder();
-                sb.AppendLine("TabName;IP;Status;DevState;Success;Fail;Total");
-                foreach (var dev in Devices)
+                try
                 {
-                    sb.AppendLine($"{dev.TabName};{dev.IpAddress};{dev.Status};{dev.DevState};{dev.SuccessCount};{dev.FailCount};{dev.SuccessCount + dev.FailCount}");
+                    var sb = new StringBuilder();
+                    var keys = DeviceTabControl.CsvKeys;
+                    
+                    // První sloupec je vždy název záložky, pak následují všechny klíče parametrů
+                    sb.AppendLine("TabName;" + string.Join(";", keys));
+                    
+                    int exportedCount = 0;
+                    foreach (var item in MainTabControl.Items)
+                    {
+                        if (item is TabItem tab && tab.Content is DeviceTabControl dtc)
+                        {
+                            var dict = dtc.ExportConfigDict();
+                            var vals = keys.Select(k => dict.ContainsKey(k) ? dict[k] : "");
+                            
+                            string safeTabName = dtc.GetDashboardState()?.TabName ?? "Unknown";
+                            sb.AppendLine($"{safeTabName};{string.Join(";", vals)}");
+                            exportedCount++;
+                        }
+                    }
+                    File.WriteAllText(sfd.FileName, sb.ToString());
+                    AddWarning($"Successfully exported config for {exportedCount} devices.");
                 }
-                File.WriteAllText(sfd.FileName, sb.ToString());
+                catch (Exception ex)
+                {
+                    AddWarning($"CSV export failed: {ex.Message}");
+                }
             }
         }
     }

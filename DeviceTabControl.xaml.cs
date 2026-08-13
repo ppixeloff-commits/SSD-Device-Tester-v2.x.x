@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -22,6 +23,8 @@ namespace SSHTester
         
         private System.Windows.Threading.DispatcherTimer _uiTimer;
 
+        public static readonly string[] CsvKeys = new[] { "Ip", "User", "Password", "SshKey", "Cycles", "Timeout", "WaitOn", "WaitOff", "PingCnt", "PingInt", "RelayEnable", "RelayAutoRecover", "AutoRecoverSec", "RelayPort", "RelayBaud", "RelayAddr", "RelayMask", "RelayOff", "RelayOn", "StressMount", "StressDir", "StressSize", "ModemImei", "ModemCount", "CustomFile", "Mode" };
+
         public DeviceTabControl()
         {
             InitializeComponent();
@@ -38,7 +41,7 @@ namespace SSHTester
             BtnStop.Click += (s, e) => StopTest();
             BtnPause.Click += BtnPause_Click;
             BtnApplyChanges.Click += BtnApplyChanges_Click;
-            BtnClearLog.Click += (s, e) => TxtConsole.Clear();
+            BtnClearLog.Click += BtnClearLog_Click;
             BtnSaveProfile.Click += BtnSaveProfile_Click;
             BtnLoadProfile.Click += BtnLoadProfile_Click;
             BtnExportLog.Click += BtnExportLog_Click;
@@ -75,10 +78,22 @@ namespace SSHTester
             catch (Exception ex) { LogMessage($"Relay Error: {ex.Message}"); }
         }
 
+        // --- ZDE JE OPRAVENÁ METODA ---
+        private async void BtnRelayCycle_Click(object sender, RoutedEventArgs e)
+        {
+            BtnRelayCycle.IsEnabled = false;
+            int offMs = int.TryParse(TxtRelayOff.Text, out int roff) ? roff : 10000;
+            
+            await SendManualRelayAsync(false);
+            await Task.Delay(offMs);
+            await SendManualRelayAsync(true);
+            
+            BtnRelayCycle.IsEnabled = true;
+        }
+
         public void InitializeDashboard(DeviceState state)
         {
             _dashboardState = state;
-
             TxtDeviceName.Text = state.TabName;
             TxtDeviceName.TextChanged += (s, e) =>
             {
@@ -157,7 +172,6 @@ namespace SSHTester
             _activeConfig = config;
             _engine = new TestEngine(config, LogMessage, UpdateStatus, UpdateStats, UpdateDevStatus, SetRelayIndicator, () => _dashboardState?.IsPaused ?? false);
             
-            TxtAvgTime.Text = "TIME: 00:00:00";
             _uiTimer.Start();
 
             await _engine.StartAsync();
@@ -185,9 +199,36 @@ namespace SSHTester
             if (_dashboardState == null) return;
             _dashboardState.IsPaused = !_dashboardState.IsPaused;
             BtnPause.Content = _dashboardState.IsPaused ? "Resume" : "Pause";
-            LogMessage(_dashboardState.IsPaused
-                ? "Pause requested - will pause once the current step finishes."
-                : "Resume requested.");
+            LogMessage(_dashboardState.IsPaused ? "Pause requested - will pause once the current step finishes." : "Resume requested.");
+        }
+
+        private void BtnClearLog_Click(object sender, RoutedEventArgs e)
+        {
+            TxtConsole.Clear();
+            ResetStats();
+        }
+
+        public void ResetStats()
+        {
+            _succCount = 0;
+            _failCount = 0;
+            _totalCount = 0;
+            
+            if (_engine != null) _engine.ResetTime();
+            
+            TxtSucc.Text = $"SUCCESS: 0";
+            TxtFail.Text = $"FAIL: 0";
+            TxtTotal.Text = $"TOTAL: 0";
+            TxtAvgTime.Text = $"TIME: 00:00:00";
+            
+            UpdatePieChart(0, 0);
+
+            if (_dashboardState != null)
+            {
+                string targetCycles = TxtCycles.Text == "0" ? "∞" : TxtCycles.Text;
+                _dashboardState.Cycles = $"Cycles: 0 / {targetCycles}";
+                _dashboardState.UpdateChart(0, 0);
+            }
         }
 
         private void BtnApplyChanges_Click(object sender, RoutedEventArgs e)
@@ -229,7 +270,7 @@ namespace SSHTester
             else if (RbSsdContinuous.IsChecked == true) _activeConfig.Mode = "continuous";
             else _activeConfig.Mode = "stress";
 
-            LogMessage("Configuration applied to the running test. (IP and SSH user/password are not changed live. Switching to/from Continuous mode requires restart.)");
+            LogMessage("Configuration applied to the running test.");
         }
 
         private void ToggleParams(object sender, RoutedEventArgs e)
@@ -284,32 +325,8 @@ namespace SSHTester
             });
         }
 
-        private void SendManualRelay(bool turnOn, string port, int baud, int address, int mask)
-        {
-            try
-            {
-                if (turnOn) RelayController.TurnOn(port, baud, address, mask);
-                else RelayController.TurnOff(port, baud, address, mask);
-                SetRelayIndicator(turnOn);
-                LogMessage($"Manual Relay Command: {(turnOn ? "ON" : "OFF")} (mask {mask}) on {port}");
-            }
-            catch (Exception ex) { LogMessage($"Relay Error: {ex.Message}"); }
-        }
-
-        private async void BtnRelayCycle_Click(object sender, RoutedEventArgs e)
-        {
-            BtnRelayCycle.IsEnabled = false;
-            
-            var (port, baud, address, mask) = CaptureRelayUiValues();
-            int offMs = int.TryParse(TxtRelayOff.Text, out int roff) ? roff : 10000;
-            await Task.Run(() => 
-            {
-                SendManualRelay(false, port, baud, address, mask);
-                System.Threading.Thread.Sleep(offMs);
-                SendManualRelay(true, port, baud, address, mask);
-            });
-            BtnRelayCycle.IsEnabled = true;
-        }
+        public Dictionary<string, string> ExportConfigDict() => BuildProfileDict();
+        public void ImportConfigDict(Dictionary<string, string> dict) => ApplyProfileDict(dict);
 
         private Dictionary<string, string> BuildProfileDict()
         {
@@ -320,10 +337,13 @@ namespace SSHTester
                 : RbSsdContinuous.IsChecked == true ? "continuous"
                 : "stress";
 
+            string pass = ChkShowPass.IsChecked == true ? TxtPasswordVisible.Text : TxtPassword.Password;
+
             return new Dictionary<string, string>
             {
                 { "Ip", TxtIpAddress.Text },
                 { "User", TxtUser.Text },
+                { "Password", pass },
                 { "SshKey", TxtSshKey.Text },
                 { "Cycles", TxtCycles.Text },
                 { "Timeout", TxtTimeout.Text },
@@ -352,13 +372,11 @@ namespace SSHTester
 
         private void ApplyProfileDict(Dictionary<string, string> dict)
         {
-            void Set(string key, Action<string> setter)
-            {
-                if (dict.TryGetValue(key, out var v)) setter(v);
-            }
+            void Set(string key, Action<string> setter) { if (dict.TryGetValue(key, out var v)) setter(v); }
 
             Set("Ip", v => TxtIpAddress.Text = v);
             Set("User", v => TxtUser.Text = v);
+            Set("Password", v => { TxtPassword.Password = v; TxtPasswordVisible.Text = v; });
             Set("SshKey", v => TxtSshKey.Text = v);
             Set("Cycles", v => TxtCycles.Text = v);
             Set("Timeout", v => TxtTimeout.Text = v);
@@ -408,7 +426,7 @@ namespace SSHTester
             {
                 var dict = BuildProfileDict();
                 File.WriteAllText(sfd.FileName, JsonSerializer.Serialize(dict, new JsonSerializerOptions { WriteIndented = true }));
-                LogMessage($"Profile saved to {sfd.FileName} (password is not stored in the profile).");
+                LogMessage($"Profile saved to {sfd.FileName}.");
             }
         }
 
@@ -420,16 +438,9 @@ namespace SSHTester
                 try
                 {
                     var dict = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(ofd.FileName));
-                    if (dict != null)
-                    {
-                        ApplyProfileDict(dict);
-                        LogMessage($"Profile loaded from {ofd.FileName}.");
-                    }
+                    if (dict != null) { ApplyProfileDict(dict); LogMessage($"Profile loaded from {ofd.FileName}."); }
                 }
-                catch (Exception ex)
-                {
-                    LogMessage($"Failed to load profile: {ex.Message}");
-                }
+                catch (Exception ex) { LogMessage($"Failed to load profile: {ex.Message}"); }
             }
         }
 
@@ -441,11 +452,7 @@ namespace SSHTester
 
         private void BtnExportCsv_Click(object sender, RoutedEventArgs e)
         {
-            SaveFileDialog sfd = new SaveFileDialog
-            {
-                Filter = "CSV files (*.csv)|*.csv",
-                FileName = $"{(string.IsNullOrWhiteSpace(TxtDeviceName.Text) ? "device" : TxtDeviceName.Text)}_report.csv"
-            };
+            SaveFileDialog sfd = new SaveFileDialog { Filter = "CSV files (*.csv)|*.csv", FileName = "report.csv" };
             if (sfd.ShowDialog() == true)
             {
                 var sb = new StringBuilder();
@@ -472,12 +479,7 @@ namespace SSHTester
 
         private void UpdateStatus(string message, double progress)
         {
-            Dispatcher.Invoke(() => 
-            { 
-                TxtStatus.Text = message; 
-                PbStatus.Value = progress; 
-                if (_dashboardState != null) _dashboardState.Status = message;
-            });
+            Dispatcher.Invoke(() => { TxtStatus.Text = message; PbStatus.Value = progress; if (_dashboardState != null) _dashboardState.Status = message; });
         }
 
         private void UpdatePieChart(int success, int fail)
@@ -487,17 +489,14 @@ namespace SSHTester
             {
                 LocalChartBg.Stroke = Brushes.SlateGray;
                 LocalChartFg.Stroke = Brushes.Transparent;
-                LocalChartFg.StrokeDashArray = new DoubleCollection { 0, 1000 };
-                return;
+            }
+            else
+            {
+                LocalChartBg.Stroke = Brushes.Crimson;
+                LocalChartFg.Stroke = Brushes.MediumSeaGreen;
             }
 
-            LocalChartBg.Stroke = Brushes.Crimson;
-            LocalChartFg.Stroke = Brushes.MediumSeaGreen;
-            
-            // Obvod kruhu o průměru 48 (Width/Height)
-            double circumference = 48 * Math.PI; 
-            double successDash = ((double)success / total) * circumference;
-            LocalChartFg.StrokeDashArray = new DoubleCollection { successDash, circumference };
+            LocalChartFg.StrokeDashArray = ChartUtils.CalculateDashArray(success, total, 48, 8);
         }
 
         private void UpdateStats(bool success, double timeSeconds, int cycle)
