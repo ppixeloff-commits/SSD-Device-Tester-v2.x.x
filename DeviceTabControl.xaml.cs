@@ -23,7 +23,7 @@ namespace SSHTester
         
         private System.Windows.Threading.DispatcherTimer _uiTimer;
 
-        public static readonly string[] CsvKeys = new[] { "Ip", "User", "Password", "SshKey", "Cycles", "Timeout", "WaitOn", "WaitOff", "PingCnt", "PingInt", "RelayEnable", "RelayAutoRecover", "AutoRecoverSec", "RelayPort", "RelayBaud", "RelayAddr", "RelayMask", "RelayOff", "RelayOn", "StressMount", "StressDir", "StressSize", "ModemImei", "ModemCount", "CustomFile", "Mode" };
+        public static readonly string[] CsvKeys = new[] { "TabName", "Ip", "User", "Password", "SshKey", "Cycles", "Timeout", "WaitOn", "WaitOff", "PingCnt", "PingInt", "RelayEnable", "RelayAutoRecover", "AutoRecoverSec", "RelayPort", "RelayBaud", "RelayAddr", "RelayMask", "RelayOff", "RelayOn", "StressMount", "StressDir", "StressSize", "ModemImei", "ModemCount", "CustomFile", "Mode" };
 
         public DeviceTabControl()
         {
@@ -78,7 +78,6 @@ namespace SSHTester
             catch (Exception ex) { LogMessage($"Relay Error: {ex.Message}"); }
         }
 
-        // --- ZDE JE OPRAVENÁ METODA ---
         private async void BtnRelayCycle_Click(object sender, RoutedEventArgs e)
         {
             BtnRelayCycle.IsEnabled = false;
@@ -341,6 +340,7 @@ namespace SSHTester
 
             return new Dictionary<string, string>
             {
+                { "TabName", TxtDeviceName.Text },
                 { "Ip", TxtIpAddress.Text },
                 { "User", TxtUser.Text },
                 { "Password", pass },
@@ -374,6 +374,7 @@ namespace SSHTester
         {
             void Set(string key, Action<string> setter) { if (dict.TryGetValue(key, out var v)) setter(v); }
 
+            Set("TabName", v => TxtDeviceName.Text = v);
             Set("Ip", v => TxtIpAddress.Text = v);
             Set("User", v => TxtUser.Text = v);
             Set("Password", v => { TxtPassword.Password = v; TxtPasswordVisible.Text = v; });

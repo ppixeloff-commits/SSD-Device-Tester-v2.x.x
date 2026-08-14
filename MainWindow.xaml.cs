@@ -243,11 +243,8 @@ namespace SSHTester
                         if (string.IsNullOrWhiteSpace(lines[i])) continue;
                         var vals = lines[i].Split(';');
                         
-                        // První sloupec je vždy název záložky (Device Name)
-                        string tabName = vals.Length > 0 ? vals[0] : $"Device {_tabCounter + 1}";
-                        
                         var dict = new System.Collections.Generic.Dictionary<string, string>();
-                        for (int j = 1; j < headers.Length && j < vals.Length; j++)
+                        for (int j = 0; j < headers.Length && j < vals.Length; j++)
                         {
                             dict[headers[j]] = vals[j];
                         }
@@ -260,9 +257,9 @@ namespace SSHTester
                             dtc.ImportConfigDict(dict);
                             
                             var state = dtc.GetDashboardState();
-                            if (state != null)
+                            if (state != null && dict.ContainsKey("TabName") && !string.IsNullOrWhiteSpace(dict["TabName"]))
                             {
-                                state.TabName = tabName;
+                                state.TabName = dict["TabName"];
                             }
                         }
                     }
@@ -285,8 +282,7 @@ namespace SSHTester
                     var sb = new StringBuilder();
                     var keys = DeviceTabControl.CsvKeys;
                     
-                    // První sloupec je vždy název záložky, pak následují všechny klíče parametrů
-                    sb.AppendLine("TabName;" + string.Join(";", keys));
+                    sb.AppendLine(string.Join(";", keys));
                     
                     int exportedCount = 0;
                     foreach (var item in MainTabControl.Items)
@@ -296,8 +292,7 @@ namespace SSHTester
                             var dict = dtc.ExportConfigDict();
                             var vals = keys.Select(k => dict.ContainsKey(k) ? dict[k] : "");
                             
-                            string safeTabName = dtc.GetDashboardState()?.TabName ?? "Unknown";
-                            sb.AppendLine($"{safeTabName};{string.Join(";", vals)}");
+                            sb.AppendLine(string.Join(";", vals));
                             exportedCount++;
                         }
                     }

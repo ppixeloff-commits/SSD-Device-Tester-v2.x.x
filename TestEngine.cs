@@ -21,7 +21,6 @@ namespace SSHTester
         private CancellationTokenSource? _cts;
         private bool _isOnline;
         
-        // Paměť pro očekávanou MD5 ze začátku SSD 1GB Testu
         private string _expectedSsd1GbMd5 = "";
 
         private Stopwatch _activeTime = new Stopwatch();
@@ -111,25 +110,40 @@ namespace SSHTester
                     await WaitWhilePausedAsync(token);
 
                     _log($"\n--- STARTING CYCLE {currentCycle} ---");
+                    
+                    if (_config.RelayEnable)
+                    {
+                        _status($"Cycle {currentCycle}: Turning relay ON...", 5);
+                        TurnRelayOn();
+                        await Task.Delay(_config.RelayOnMs, token);
+                    }
+
                     _status($"Cycle {currentCycle}: Waiting for device...", 10);
                     
                     int waitSec = 0;
+                    bool watchdogFailed = false;
                     while (!_isOnline) 
                     { 
                         token.ThrowIfCancellationRequested(); await Task.Delay(1000, token); waitSec++;
                         if (_config.RelayAutoRecover && waitSec >= _config.RelayAutoRecoverSeconds)
                         {
-                            _log($"Auto-recover: Device offline for {_config.RelayAutoRecoverSeconds}s, power-cycling...");
-                            PowerCycleRelay(); waitSec = 0;
+                            _log($"Watchdog: Router failed to boot within {_config.RelayAutoRecoverSeconds}s. Cycle marked as FAILED.");
+                            watchdogFailed = true;
+                            break;
                         }
                     }
 
-                    await WaitWhilePausedAsync(token);
-                    _status($"Cycle {currentCycle}: Online. Waiting boot...", 20);
-                    await Task.Delay(_config.WaitOnline * 1000, token);
-
                     Stopwatch sw = Stopwatch.StartNew();
-                    bool success = ExecuteCycleMode();
+                    bool success = false;
+
+                    if (!watchdogFailed)
+                    {
+                        await WaitWhilePausedAsync(token);
+                        _status($"Cycle {currentCycle}: Online. Waiting boot...", 20);
+                        await Task.Delay(_config.WaitOnline * 1000, token);
+
+                        success = ExecuteCycleMode();
+                    }
                     sw.Stop();
 
                     totalRun++;
@@ -182,13 +196,30 @@ namespace SSHTester
             try
             {
                 _log("\n--- STARTING CONTINUOUS READ/WRITE TEST (no restart / no relay cycling between passes) ---");
+                
+                if (_config.RelayEnable)
+                {
+                    _status("Turning relay ON...", 5);
+                    TurnRelayOn();
+                    await Task.Delay(_config.RelayOnMs, token);
+                }
+
                 _status("Waiting for device...", 10);
                 
                 int waitOnlineSec = 0;
                 while (!_isOnline)
                 {
                     token.ThrowIfCancellationRequested(); await Task.Delay(1000, token); waitOnlineSec++;
-                    if (waitOnlineSec % 10 == 0) _log($"Still waiting for device to come online... ({waitOnlineSec}s elapsed)");
+                    if (_config.RelayAutoRecover && waitOnlineSec >= _config.RelayAutoRecoverSeconds)
+                    {
+                        _log($"Watchdog: Initial boot failed within {_config.RelayAutoRecoverSeconds}s. Power-cycling...");
+                        if (_config.RelayEnable) PowerCycleRelay();
+                        waitOnlineSec = 0;
+                    }
+                    else if (waitOnlineSec % 10 == 0) 
+                    {
+                        _log($"Still waiting for device to come online... ({waitOnlineSec}s elapsed)");
+                    }
                 }
 
                 _log("Device is online.");
@@ -201,18 +232,36 @@ namespace SSHTester
                 {
                     await WaitWhilePausedAsync(token);
 
+                    bool watchdogFailed = false;
                     if (!_isOnline)
                     {
                         _status($"Pass {currentCycle}: device offline, waiting for reconnect...", 15);
-                        while (!_isOnline) { token.ThrowIfCancellationRequested(); await Task.Delay(1000, token); }
+                        int reconnectWait = 0;
+                        while (!_isOnline) 
+                        { 
+                            token.ThrowIfCancellationRequested(); await Task.Delay(1000, token); reconnectWait++;
+                            if (_config.RelayAutoRecover && reconnectWait >= _config.RelayAutoRecoverSeconds)
+                            {
+                                _log($"Watchdog: Device failed to reconnect within {_config.RelayAutoRecoverSeconds}s. Pass marked as FAILED.");
+                                watchdogFailed = true;
+                                break;
+                            }
+                        }
                     }
 
-                    _log($"\n--- CONTINUOUS PASS {currentCycle} ---");
-                    _status($"Pass {currentCycle}: writing/reading...", 50);
-
                     Stopwatch sw = Stopwatch.StartNew();
-                    bool success;
-                    try { success = ExecuteStress(); } catch (Exception ex) { _log($"SSH Error: {ex.Message}"); success = false; }
+                    bool success = false;
+
+                    if (!watchdogFailed)
+                    {
+                        _log($"\n--- CONTINUOUS PASS {currentCycle} ---");
+                        _status($"Pass {currentCycle}: writing/reading...", 50);
+                        try { success = ExecuteStress(); } catch (Exception ex) { _log($"SSH Error: {ex.Message}"); success = false; }
+                    }
+                    else
+                    {
+                        if (_config.RelayEnable) PowerCycleRelay();
+                    }
                     sw.Stop();
 
                     totalRun++;
@@ -380,7 +429,6 @@ namespace SSHTester
 
             if (hasExpectedCount)
             {
-                // Najde přesně 15 po sobě jdoucích číslic bez mezer (zabrání nalezení 16+místných)
                 var matches = Regex.Matches(output, @"(?<!\d)\d{15}(?!\d)");
                 _log($"[Count Check] Found {matches.Count} IMEIs (15-digit numbers). Expected: {expectedCount}");
                 if (matches.Count != expectedCount) 
@@ -467,6 +515,18 @@ namespace SSHTester
             
             _log(success ? "=== FSCK TEST PASSED ===" : "=== FSCK TEST FAILED ===");
             return success;
+        }
+
+        private void TurnRelayOn()
+        {
+            try
+            {
+                int mask = RelayController.ParseMask(_config.RelayMask);
+                _log($"Relay ON via {_config.RelayPort} (addr {_config.RelayAddress}, mask {_config.RelayMask})");
+                _relayUpdate(true);
+                RelayController.TurnOn(_config.RelayPort, _config.RelayBaudrate, _config.RelayAddress, mask);
+            }
+            catch (Exception ex) { _log($"Relay Error: {ex.Message}"); }
         }
 
         private void PowerCycleRelay()
