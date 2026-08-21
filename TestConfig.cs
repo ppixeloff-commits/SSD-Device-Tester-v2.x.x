@@ -33,5 +33,9 @@ namespace SSHTester
         public string ModemCount { get; set; } = "";
         
         public string CustomFile { get; set; } = "";
+
+        // --- TYTO DVA ŘÁDKY TAM PRAVDĚPODOBNĚ CHYBÍ ---
+        public string PingTarget { get; set; } = "8.8.8.8";
+        public int PingTargetTimeout { get; set; } = 10;
     }
 }

@@ -23,7 +23,7 @@ namespace SSHTester
         
         private System.Windows.Threading.DispatcherTimer _uiTimer;
 
-        public static readonly string[] CsvKeys = new[] { "TabName", "Ip", "User", "Password", "SshKey", "Cycles", "Timeout", "WaitOn", "WaitOff", "PingCnt", "PingInt", "RelayEnable", "RelayAutoRecover", "AutoRecoverSec", "RelayPort", "RelayBaud", "RelayAddr", "RelayMask", "RelayOff", "RelayOn", "StressMount", "StressDir", "StressSize", "ModemImei", "ModemCount", "CustomFile", "Mode" };
+        public static readonly string[] CsvKeys = new[] { "TabName", "Ip", "User", "Password", "SshKey", "Cycles", "Timeout", "WaitOn", "WaitOff", "PingCnt", "PingInt", "RelayEnable", "RelayAutoRecover", "AutoRecoverSec", "RelayPort", "RelayBaud", "RelayAddr", "RelayMask", "RelayOff", "RelayOn", "StressMount", "StressDir", "StressSize", "ModemImei", "ModemCount", "CustomFile", "Mode", "PingTarget", "PingTargetTimeout" };
 
         public DeviceTabControl()
         {
@@ -151,12 +151,15 @@ namespace SSHTester
                 DiskSizeGb = TxtStressSize.Text.Replace(',', '.'),
                 ExpectedImeis = TxtModemImei.Text,
                 ModemCount = TxtModemCount.Text,
-                CustomFile = TxtCustomFile.Text
+                CustomFile = TxtCustomFile.Text,
+                PingTarget = TxtPingTarget.Text,
+                PingTargetTimeout = int.TryParse(TxtPingTargetTimeout.Text, out int ptt) ? ptt : 10
             };
 
             if (RbModem.IsChecked == true) config.Mode = "modem";
             else if (RbSsd1Gb.IsChecked == true) config.Mode = "ssd1gb";
             else if (RbFsck.IsChecked == true) config.Mode = "fsck";
+            else if (RbPing.IsChecked == true) config.Mode = "ping";
             else if (RbCustom.IsChecked == true) config.Mode = "custom";
             else if (RbSsdContinuous.IsChecked == true) config.Mode = "continuous";
             else config.Mode = "stress";
@@ -261,10 +264,13 @@ namespace SSHTester
             _activeConfig.ExpectedImeis = TxtModemImei.Text;
             _activeConfig.ModemCount = TxtModemCount.Text;
             _activeConfig.CustomFile = TxtCustomFile.Text;
+            _activeConfig.PingTarget = TxtPingTarget.Text;
+            _activeConfig.PingTargetTimeout = int.TryParse(TxtPingTargetTimeout.Text, out int ptt) ? ptt : _activeConfig.PingTargetTimeout;
 
             if (RbModem.IsChecked == true) _activeConfig.Mode = "modem";
             else if (RbSsd1Gb.IsChecked == true) _activeConfig.Mode = "ssd1gb";
             else if (RbFsck.IsChecked == true) _activeConfig.Mode = "fsck";
+            else if (RbPing.IsChecked == true) _activeConfig.Mode = "ping";
             else if (RbCustom.IsChecked == true) _activeConfig.Mode = "custom";
             else if (RbSsdContinuous.IsChecked == true) _activeConfig.Mode = "continuous";
             else _activeConfig.Mode = "stress";
@@ -274,15 +280,17 @@ namespace SSHTester
 
         private void ToggleParams(object sender, RoutedEventArgs e)
         {
-            if (PanelStress == null || PanelModem == null || PanelCustom == null) return;
+            if (PanelStress == null || PanelModem == null || PanelCustom == null || PanelPing == null) return;
             PanelStress.Visibility = Visibility.Collapsed;
             PanelModem.Visibility = Visibility.Collapsed;
             PanelCustom.Visibility = Visibility.Collapsed;
+            PanelPing.Visibility = Visibility.Collapsed;
             PanelStressSize.Visibility = Visibility.Collapsed;
 
             if (RbSsdStress?.IsChecked == true || RbSsdContinuous?.IsChecked == true) { PanelStress.Visibility = Visibility.Visible; PanelStressSize.Visibility = Visibility.Visible; }
             else if (RbSsd1Gb?.IsChecked == true || RbFsck?.IsChecked == true) { PanelStress.Visibility = Visibility.Visible; }
             else if (RbModem?.IsChecked == true) { PanelModem.Visibility = Visibility.Visible; }
+            else if (RbPing?.IsChecked == true) { PanelPing.Visibility = Visibility.Visible; }
             else if (RbCustom?.IsChecked == true) { PanelCustom.Visibility = Visibility.Visible; }
         }
 
@@ -332,6 +340,7 @@ namespace SSHTester
             string mode = RbModem.IsChecked == true ? "modem"
                 : RbSsd1Gb.IsChecked == true ? "ssd1gb"
                 : RbFsck.IsChecked == true ? "fsck"
+                : RbPing.IsChecked == true ? "ping"
                 : RbCustom.IsChecked == true ? "custom"
                 : RbSsdContinuous.IsChecked == true ? "continuous"
                 : "stress";
@@ -366,6 +375,8 @@ namespace SSHTester
                 { "ModemImei", TxtModemImei.Text },
                 { "ModemCount", TxtModemCount.Text },
                 { "CustomFile", TxtCustomFile.Text },
+                { "PingTarget", TxtPingTarget.Text },
+                { "PingTargetTimeout", TxtPingTargetTimeout.Text },
                 { "Mode", mode }
             };
         }
@@ -400,6 +411,8 @@ namespace SSHTester
             Set("ModemImei", v => TxtModemImei.Text = v);
             Set("ModemCount", v => TxtModemCount.Text = v);
             Set("CustomFile", v => TxtCustomFile.Text = v);
+            Set("PingTarget", v => TxtPingTarget.Text = v);
+            Set("PingTargetTimeout", v => TxtPingTargetTimeout.Text = v);
 
             if (dict.TryGetValue("Mode", out var mode))
             {
@@ -408,6 +421,7 @@ namespace SSHTester
                     case "modem": RbModem.IsChecked = true; break;
                     case "ssd1gb": RbSsd1Gb.IsChecked = true; break;
                     case "fsck": RbFsck.IsChecked = true; break;
+                    case "ping": RbPing.IsChecked = true; break;
                     case "custom": RbCustom.IsChecked = true; break;
                     case "continuous": RbSsdContinuous.IsChecked = true; break;
                     default: RbSsdStress.IsChecked = true; break;
