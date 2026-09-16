@@ -324,12 +324,12 @@ namespace SSHTester
 
         private void SetRelayIndicator(bool? isOn)
         {
-            Dispatcher.Invoke(() => 
+            Dispatcher.BeginInvoke(new Action(() => 
             {
                 if (isOn == true) { TxtRelayStatusTxt.Text = "RELAY: ON"; TxtRelayStatusTxt.Foreground = Brushes.MediumSeaGreen; }
                 else if (isOn == false) { TxtRelayStatusTxt.Text = "RELAY: OFF"; TxtRelayStatusTxt.Foreground = Brushes.Crimson; }
                 else { TxtRelayStatusTxt.Text = "RELAY: UNK"; TxtRelayStatusTxt.Foreground = Brushes.SlateGray; }
-            });
+            }));
         }
 
         public Dictionary<string, string> ExportConfigDict() => BuildProfileDict();
@@ -480,21 +480,26 @@ namespace SSHTester
 
         private void LogMessage(string message)
         {
-            Dispatcher.Invoke(() =>
+            Dispatcher.BeginInvoke(new Action(() =>
             {
-                TxtConsole.AppendText($"{DateTime.Now:yyyy-MM-dd HH:mm:ss,fff}: {message}\n");
+                TxtConsole.AppendText($"{DateTime.Now:yyyy-MM-dd HH:mm:ss,fff}: {message}{Environment.NewLine}");
                 TxtConsole.ScrollToEnd();
 
                 if (message.Contains("Error", StringComparison.OrdinalIgnoreCase) || message.Contains("Fail", StringComparison.OrdinalIgnoreCase))
                 {
                     if (Window.GetWindow(this) is MainWindow mw) mw.AddWarning($"{_dashboardState?.TabName}: {message}");
                 }
-            });
+            }));
         }
 
         private void UpdateStatus(string message, double progress)
         {
-            Dispatcher.Invoke(() => { TxtStatus.Text = message; PbStatus.Value = progress; if (_dashboardState != null) _dashboardState.Status = message; });
+            Dispatcher.BeginInvoke(new Action(() => 
+            { 
+                TxtStatus.Text = message; 
+                PbStatus.Value = progress; 
+                if (_dashboardState != null) _dashboardState.Status = message; 
+            }));
         }
 
         private void UpdatePieChart(int success, int fail)
@@ -516,7 +521,7 @@ namespace SSHTester
 
         private void UpdateStats(bool success, double timeSeconds, int cycle)
         {
-            Dispatcher.Invoke(() =>
+            Dispatcher.BeginInvoke(new Action(() =>
             {
                 _totalCount++;
                 if (success) _succCount++; else _failCount++;
@@ -534,12 +539,12 @@ namespace SSHTester
                     _dashboardState.Cycles = $"Cycles: {_totalCount} / {targetCycles}";
                     _dashboardState.UpdateChart(_succCount, _failCount);
                 }
-            });
+            }));
         }
         
         private void UpdateDevStatus(string status)
         {
-            Dispatcher.Invoke(() =>
+            Dispatcher.BeginInvoke(new Action(() =>
             {
                 TxtDevStatus.Text = $"DEV: {status}";
                 TxtDevStatus.Foreground = status == "Online" ? Brushes.MediumSeaGreen : Brushes.Crimson;
@@ -549,7 +554,7 @@ namespace SSHTester
                     _dashboardState.DevState = status;
                     _dashboardState.DevStateColor = status == "Online" ? Brushes.MediumSeaGreen : (status == "Offline" ? Brushes.Crimson : Brushes.SlateGray);
                 }
-            });
+            }));
         }
     }
 }

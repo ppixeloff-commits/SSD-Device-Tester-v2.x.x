@@ -106,7 +106,7 @@ namespace SSHTester
                 }
             }
             catch (OperationCanceledException) { }
-            catch (Exception ex) { _log($"\nPingLoop Error: {ex.Message}"); }
+            catch (Exception ex) { _log($"PingLoop Error: {ex.Message}"); }
         }
 
         private async Task RunTestLoopAsync(CancellationToken token)
@@ -122,7 +122,7 @@ namespace SSHTester
                 {
                     await WaitWhilePausedAsync(token);
 
-                    _log($"\n--- STARTING CYCLE {currentCycle} ---");
+                    _log($"--- STARTING CYCLE {currentCycle} ---");
                     
                     if (_config.RelayEnable)
                     {
@@ -181,8 +181,8 @@ namespace SSHTester
                     }
                 }
             }
-            catch (OperationCanceledException) { _log("\nTest stopped by user."); }
-            catch (Exception ex) { _log($"\nError: {ex.Message}"); }
+            catch (OperationCanceledException) { _log("Test stopped by user."); }
+            catch (Exception ex) { _log($"Error: {ex.Message}"); }
             finally 
             {
                 _activeTime.Stop();
@@ -208,7 +208,7 @@ namespace SSHTester
             int currentCycle = 1, totalRun = 0, totalSucc = 0, totalFail = 0;
             try
             {
-                _log("\n--- STARTING CONTINUOUS READ/WRITE TEST (no restart / no relay cycling between passes) ---");
+                _log("--- STARTING CONTINUOUS READ/WRITE TEST (no restart / no relay cycling between passes) ---");
                 
                 if (_config.RelayEnable)
                 {
@@ -267,9 +267,9 @@ namespace SSHTester
 
                     if (!watchdogFailed)
                     {
-                        _log($"\n--- CONTINUOUS PASS {currentCycle} ---");
+                        _log($"--- CONTINUOUS PASS {currentCycle} ---");
                         _status($"Pass {currentCycle}: writing/reading...", 50);
-                        try { success = ExecuteStress(); } catch (Exception ex) { _log($"\nSSH Error: {ex.Message}"); success = false; }
+                        try { success = ExecuteStress(); } catch (Exception ex) { _log($"SSH Error: {ex.Message}"); success = false; }
                     }
                     else
                     {
@@ -283,8 +283,8 @@ namespace SSHTester
                     currentCycle++;
                 }
             }
-            catch (OperationCanceledException) { _log("\nTest stopped by user."); }
-            catch (Exception ex) { _log($"\nError: {ex.Message}"); }
+            catch (OperationCanceledException) { _log("Test stopped by user."); }
+            catch (Exception ex) { _log($"Error: {ex.Message}"); }
             finally 
             {
                 _activeTime.Stop();
@@ -295,7 +295,7 @@ namespace SSHTester
 
         private void PrintSummary(int total, int succ, int fail, TimeSpan elapsed)
         {
-            _log("\n=========================================");
+            _log("=========================================");
             _log("           TEST RUN SUMMARY              ");
             _log("=========================================");
             _log($"Total Cycles Run : {total}");
@@ -303,14 +303,14 @@ namespace SSHTester
             _log($"Failed           : {fail}");
             _log($"Total Time       : {elapsed:hh\\:mm\\:ss}");
             if (total > 0) _log($"Success Rate     : {(succ * 100.0 / total):0.##}%");
-            _log("=========================================\n");
+            _log("=========================================");
         }
 
         private void MountDeviceIfNeeded()
         {
             if (!string.IsNullOrWhiteSpace(_config.MountDevice))
             {
-                _log($"\n[Mount] Mounting {_config.MountDevice} at {_config.TargetDirectory}...");
+                _log($"[Mount] Mounting {_config.MountDevice} at {_config.TargetDirectory}...");
                 string mountOut = ExecSsh($"mkdir -p {_config.TargetDirectory} && mount {_config.MountDevice} {_config.TargetDirectory} 2>&1", "Mount");
                 _log($"[Mount] Output: {(string.IsNullOrWhiteSpace(mountOut) ? "(ok, no output)" : mountOut.Trim())}");
             }
@@ -328,128 +328,167 @@ namespace SSHTester
                     case "modem": return ExecuteModem();
                     case "ping": return ExecuteRemotePing();
                     case "custom": return ExecuteCustom();
-                    default: _log($"\nERROR: Neznámý typ testu: {_config.Mode}"); return false;
+                    default: _log($"ERROR: Neznámý typ testu: {_config.Mode}"); return false;
                 }
             }
-            catch (Exception ex) { _log($"\nSSH Error: {ex.Message}"); return false; }
+            catch (Exception ex) { _log($"SSH Error: {ex.Message}"); return false; }
         }
 
         private bool ExecuteRemotePing()
         {
-            _log("\n=== REMOTE PING TEST STARTED ===");
+            _log("=== REMOTE PING TEST STARTED ===");
             if (string.IsNullOrWhiteSpace(_config.PingTarget))
             {
-                _log("\nERROR: Target address is empty.");
+                _log("ERROR: Target address is empty.");
                 _log("=== REMOTE PING TEST FAILED ===");
                 return false;
             }
             
-            _log($"\nExecuting: ping -c 1 -W {_config.PingTargetTimeout} {_config.PingTarget}");
-            string outStr = ExecSsh($"ping -c 1 -W {_config.PingTargetTimeout} {_config.PingTarget} 2>&1", "Remote Ping");
-            _log($"\nPing Output:\n{outStr.Trim()}");
+            int maxAttempts = _config.PingTargetTimeout;
+            if (maxAttempts <= 0) maxAttempts = 10;
             
-            bool success = outStr.Contains(" 1 received") || outStr.Contains(", 0% packet loss");
+            _log($"Starting ping loop to {_config.PingTarget} (max {maxAttempts} attempts, 1 ping/sec)...");
             
-            if (!success) _log($"\nERROR: Ping to {_config.PingTarget} failed or timed out.");
+            bool success = false;
+            string lastOutput = "";
+
+            for (int i = 1; i <= maxAttempts; i++)
+            {
+                if (_cts != null && _cts.IsCancellationRequested)
+                {
+                    _log("Test stopped during ping loop.");
+                    break;
+                }
+                
+                Stopwatch sw = Stopwatch.StartNew();
+                string outStr = ExecSsh($"ping -c 1 -W 1 {_config.PingTarget} 2>&1", "Remote Ping");
+                sw.Stop();
+                
+                success = outStr.Contains(" 1 received") || outStr.Contains(", 0% packet loss");
+                
+                if (success)
+                {
+                    _log($"[Attempt {i}/{maxAttempts}] SUCCESS: Device responded to ping.");
+                    _log($"Ping Output:{Environment.NewLine}{outStr.Trim()}");
+                    break;
+                }
+                else
+                {
+                    lastOutput = outStr; // Uložíme pouze do proměnné, nevypisujeme do logu
+                    if (sw.ElapsedMilliseconds < 1000 && i < maxAttempts)
+                    {
+                        Thread.Sleep((int)(1000 - sw.ElapsedMilliseconds));
+                    }
+                }
+            }
             
-            _log(success ? "\n=== REMOTE PING TEST PASSED ===" : "\n=== REMOTE PING TEST FAILED ===");
+            if (!success) 
+            {
+                _log($"ERROR: Ping to {_config.PingTarget} failed to respond within {maxAttempts} attempts.");
+                if (!string.IsNullOrWhiteSpace(lastOutput))
+                {
+                    _log($"Last Ping Output:{Environment.NewLine}{lastOutput.Trim()}");
+                }
+            }
+            
+            _log(success ? "=== REMOTE PING TEST PASSED ===" : "=== REMOTE PING TEST FAILED ===");
             return success;
         }
 
         private bool ExecuteStress()
         {
-            _log("\n=== STRESS TEST STARTED ===");
+            _log("=== STRESS TEST STARTED ===");
             if (!double.TryParse(_config.DiskSizeGb, out double diskGb)) diskGb = 3.8;
             int stressMb = (int)Math.Min((diskGb * 1024) * 0.8, 20000);
             string file = $"{_config.TargetDirectory}/stress_test.bin";
             
-            _log($"\n[1/3] Executing Write: dd if=/dev/zero of={file} bs=1M count={stressMb} conv=fsync");
+            _log($"[1/3] Executing Write: dd if=/dev/zero of={file} bs=1M count={stressMb} conv=fsync");
             string wOut = ExecSsh($"dd if=/dev/zero of={file} bs=1M count={stressMb} conv=fsync 2>&1", "Write");
-            _log($"\nWrite Output:\n{wOut.Trim()}");
+            _log($"Write Output:{Environment.NewLine}{wOut.Trim()}");
             
-            _log($"\n[2/3] Executing Read: dd if={file} of=/dev/null bs=1M");
+            _log($"[2/3] Executing Read: dd if={file} of=/dev/null bs=1M");
             string rOut = ExecSsh($"dd if={file} of=/dev/null bs=1M 2>&1", "Read");
-            _log($"\nRead Output:\n{rOut.Trim()}");
+            _log($"Read Output:{Environment.NewLine}{rOut.Trim()}");
             
-            _log($"\n[3/3] Cleanup: rm -f {file}");
+            _log($"[3/3] Cleanup: rm -f {file}");
             ExecSsh($"rm -f {file} 2>&1", "Cleanup");
             
             bool wSuccess = wOut.Contains("copied");
             bool rSuccess = rOut.Contains("copied");
-            if (!wSuccess) _log("\nERROR: Write step failed.");
-            if (!rSuccess) _log("\nERROR: Read step failed.");
+            if (!wSuccess) _log("ERROR: Write step failed.");
+            if (!rSuccess) _log("ERROR: Read step failed.");
 
             bool overall = wSuccess && rSuccess;
-            _log(overall ? "\n=== STRESS TEST PASSED ===" : "\n=== STRESS TEST FAILED ===");
+            _log(overall ? "=== STRESS TEST PASSED ===" : "=== STRESS TEST FAILED ===");
             return overall;
         }
 
         private bool ExecuteSsd1Gb()
         {
-            _log("\n=== SSD 1GB TEST STARTED ===");
+            _log("=== SSD 1GB TEST STARTED ===");
             string file = $"{_config.TargetDirectory}/test1gb.bin";
 
-            _log("\n[1/3] Checking if file exists and getting MD5...");
+            _log("[1/3] Checking if file exists and getting MD5...");
             string md5Out = ExecSsh($"md5sum {file} 2>&1", "MD5 check");
             string md5 = md5Out.Split(' ')[0].Trim();
             
             if (md5.Length < 32 || md5Out.Contains("No such file"))
             {
-                _log("\nFile missing or invalid. Creating new 1GB file...");
-                _log($"\n[2/3] Executing: dd if=/dev/urandom of={file} bs=1M count=1024 conv=fsync");
+                _log("File missing or invalid. Creating new 1GB file...");
+                _log($"[2/3] Executing: dd if=/dev/urandom of={file} bs=1M count=1024 conv=fsync");
                 string wOut = ExecSsh($"dd if=/dev/urandom of={file} bs=1M count=1024 conv=fsync 2>&1", "Write");
                 
                 if (!wOut.Contains("copied")) 
                 {
-                    _log("\nERROR: Failed to create 1GB file.");
+                    _log("ERROR: Failed to create 1GB file.");
                     _log("=== SSD 1GB TEST FAILED ===");
                     return false;
                 }
 
-                _log("\n[3/3] Calculating MD5 of newly created file...");
+                _log("[3/3] Calculating MD5 of newly created file...");
                 md5Out = ExecSsh($"md5sum {file} 2>&1", "MD5 check");
                 md5 = md5Out.Split(' ')[0].Trim();
                 
                 if (md5.Length == 32)
                 {
                     _expectedSsd1GbMd5 = md5;
-                    _log($"\nOK: Stored baseline MD5 for future cycles: {_expectedSsd1GbMd5}");
+                    _log($"OK: Stored baseline MD5 for future cycles: {_expectedSsd1GbMd5}");
                     _log("=== SSD 1GB TEST PASSED (Baseline Created) ===");
                     return true;
                 }
-                _log("\nERROR: Failed to get MD5 of new file.");
+                _log("ERROR: Failed to get MD5 of new file.");
                 _log("=== SSD 1GB TEST FAILED ===");
                 return false;
             }
             
-            _log($"\nFound existing file with MD5: {md5}");
+            _log($"Found existing file with MD5: {md5}");
             if (string.IsNullOrEmpty(_expectedSsd1GbMd5))
             {
                 _expectedSsd1GbMd5 = md5;
-                _log($"\nOK: Stored baseline MD5 for future cycles: {_expectedSsd1GbMd5}");
+                _log($"OK: Stored baseline MD5 for future cycles: {_expectedSsd1GbMd5}");
                 _log("=== SSD 1GB TEST PASSED (Baseline Established) ===");
                 return true;
             }
 
-            _log($"\n[2/3] Comparing MD5...");
+            _log($"[2/3] Comparing MD5...");
             if (md5 == _expectedSsd1GbMd5)
             {
-                _log($"\nOK: MD5 matches expected value ({_expectedSsd1GbMd5})");
+                _log($"OK: MD5 matches expected value ({_expectedSsd1GbMd5})");
                 _log("=== SSD 1GB TEST PASSED ===");
                 return true;
             }
             
-            _log($"\nERROR: MD5 mismatch! Expected: {_expectedSsd1GbMd5}, Got: {md5}");
+            _log($"ERROR: MD5 mismatch! Expected: {_expectedSsd1GbMd5}, Got: {md5}");
             _log("=== SSD 1GB TEST FAILED ===");
             return false;
         }
 
         private bool ExecuteModem()
         {
-            _log("\n=== MODEM TEST STARTED ===");
-            _log("\nExecuting: modemctl -i");
+            _log("=== MODEM TEST STARTED ===");
+            _log("Executing: modemctl -i");
             string output = ExecSsh("modemctl -i 2>&1", "Modem query");
-            _log($"\nModemctl Output:\n{output.Trim()}");
+            _log($"Modemctl Output:{Environment.NewLine}{output.Trim()}");
             
             bool hasExpectedImeis = !string.IsNullOrWhiteSpace(_config.ExpectedImeis);
             bool hasExpectedCount = int.TryParse(_config.ModemCount, out int expectedCount);
@@ -457,7 +496,7 @@ namespace SSHTester
             if (!hasExpectedImeis && !hasExpectedCount)
             {
                 bool hasOutput = !string.IsNullOrWhiteSpace(output) && !output.Contains("command not found");
-                _log(hasOutput ? "\n=== MODEM TEST PASSED ===" : "\n=== MODEM TEST FAILED ===");
+                _log(hasOutput ? "=== MODEM TEST PASSED ===" : "=== MODEM TEST FAILED ===");
                 return hasOutput;
             }
 
@@ -466,41 +505,41 @@ namespace SSHTester
             if (hasExpectedCount)
             {
                 var matches = Regex.Matches(output, @"(?<!\d)\d{15}(?!\d)");
-                _log($"\n[Count Check] Found {matches.Count} IMEIs (15-digit numbers). Expected: {expectedCount}");
+                _log($"[Count Check] Found {matches.Count} IMEIs (15-digit numbers). Expected: {expectedCount}");
                 if (matches.Count != expectedCount) 
                 {
-                    _log("\nERROR: Modem count mismatch.");
+                    _log("ERROR: Modem count mismatch.");
                     success = false;
                 }
             }
 
             if (hasExpectedImeis)
             {
-                _log($"\n[IMEI Check] Verifying expected IMEIs: {_config.ExpectedImeis}");
+                _log($"[IMEI Check] Verifying expected IMEIs: {_config.ExpectedImeis}");
                 string[] imeis = _config.ExpectedImeis.Split(',');
                 foreach (var imei in imeis)
                 {
                     string cleanImei = imei.Trim();
-                    if (output.Contains(cleanImei)) _log($"\nOK: IMEI {cleanImei} found.");
-                    else { _log($"\nERROR: IMEI {cleanImei} not found."); success = false; }
+                    if (output.Contains(cleanImei)) _log($"OK: IMEI {cleanImei} found.");
+                    else { _log($"ERROR: IMEI {cleanImei} not found."); success = false; }
                 }
             }
             
-            _log(success ? "\n=== MODEM TEST PASSED ===" : "\n=== MODEM TEST FAILED ===");
+            _log(success ? "=== MODEM TEST PASSED ===" : "=== MODEM TEST FAILED ===");
             return success;
         }
 
         private bool ExecuteCustom()
         {
-            _log("\n=== CUSTOM TEST STARTED ===");
+            _log("=== CUSTOM TEST STARTED ===");
             if (string.IsNullOrWhiteSpace(_config.CustomFile) || !File.Exists(_config.CustomFile))
             {
-                _log($"\nERROR: Custom file not found or path empty: '{_config.CustomFile}'");
+                _log($"ERROR: Custom file not found or path empty: '{_config.CustomFile}'");
                 _log("=== CUSTOM TEST FAILED ===");
                 return false;
             }
             
-            _log($"\nLoading commands from: {_config.CustomFile}");
+            _log($"Loading commands from: {_config.CustomFile}");
             string[] lines = File.ReadAllLines(_config.CustomFile);
             int cmdIndex = 1;
 
@@ -511,45 +550,45 @@ namespace SSHTester
                 string cmd = parts[0];
                 string expected = parts.Length > 1 ? parts[1].Trim() : "";
                 
-                _log($"\n[CMD {cmdIndex}] Executing: {cmd}");
+                _log($"[CMD {cmdIndex}] Executing: {cmd}");
                 string outStr = ExecSsh($"{cmd} 2>&1", $"CMD '{cmd}'");
-                _log($"\n[CMD {cmdIndex}] Output:\n{outStr.Trim()}");
+                _log($"[CMD {cmdIndex}] Output:{Environment.NewLine}{outStr.Trim()}");
                 
                 if (!string.IsNullOrWhiteSpace(expected) && !outStr.Contains(expected))
                 {
-                    _log($"\nERROR: Output did not contain expected string '{expected}'.");
+                    _log($"ERROR: Output did not contain expected string '{expected}'.");
                     _log("=== CUSTOM TEST FAILED ===");
                     return false;
                 }
                 cmdIndex++;
             }
             
-            _log("\n=== CUSTOM TEST PASSED ===");
+            _log("=== CUSTOM TEST PASSED ===");
             return true;
         }
 
         private bool ExecuteFsck()
         {
-            _log("\n=== FSCK TEST STARTED ===");
+            _log("=== FSCK TEST STARTED ===");
             if (string.IsNullOrWhiteSpace(_config.MountDevice))
             {
-                _log("\nERROR: Mount device is empty (cannot run fsck).");
+                _log("ERROR: Mount device is empty (cannot run fsck).");
                 _log("=== FSCK TEST FAILED ===");
                 return false;
             }
             
-            _log($"\n[1/2] Unmounting {_config.TargetDirectory} before FSCK...");
+            _log($"[1/2] Unmounting {_config.TargetDirectory} before FSCK...");
             string umountOut = ExecSsh($"umount {_config.TargetDirectory} 2>&1", "Unmount");
-            if (!string.IsNullOrWhiteSpace(umountOut)) _log($"\nUnmount output: {umountOut.Trim()}");
+            if (!string.IsNullOrWhiteSpace(umountOut)) _log($"Unmount output: {umountOut.Trim()}");
             
-            _log($"\n[2/2] Executing: fsck -y {_config.MountDevice}");
+            _log($"[2/2] Executing: fsck -y {_config.MountDevice}");
             string outStr = ExecSsh($"fsck -y {_config.MountDevice} 2>&1", "FSCK");
-            _log($"\nFSCK Output:\n{outStr.Trim()}");
+            _log($"FSCK Output:{Environment.NewLine}{outStr.Trim()}");
             
             bool success = !outStr.Contains("UNEXPECTED INCONSISTENCY") && !outStr.Contains("FAILED");
-            if (!success) _log("\nERROR: FSCK reported failure or unexpected inconsistency.");
+            if (!success) _log("ERROR: FSCK reported failure or unexpected inconsistency.");
             
-            _log(success ? "\n=== FSCK TEST PASSED ===" : "\n=== FSCK TEST FAILED ===");
+            _log(success ? "=== FSCK TEST PASSED ===" : "=== FSCK TEST FAILED ===");
             return success;
         }
 
@@ -558,11 +597,11 @@ namespace SSHTester
             try
             {
                 int mask = RelayController.ParseMask(_config.RelayMask);
-                _log($"\nRelay ON via {_config.RelayPort} (addr {_config.RelayAddress}, mask {_config.RelayMask})");
+                _log($"Relay ON via {_config.RelayPort} (addr {_config.RelayAddress}, mask {_config.RelayMask})");
                 _relayUpdate(true);
                 RelayController.TurnOn(_config.RelayPort, _config.RelayBaudrate, _config.RelayAddress, mask);
             }
-            catch (Exception ex) { _log($"\nRelay Error: {ex.Message}"); }
+            catch (Exception ex) { _log($"Relay Error: {ex.Message}"); }
         }
 
         private void PowerCycleRelay()
@@ -570,17 +609,17 @@ namespace SSHTester
             try
             {
                 int mask = RelayController.ParseMask(_config.RelayMask);
-                _log($"\nRelay OFF via {_config.RelayPort} (addr {_config.RelayAddress}, mask {_config.RelayMask})");
+                _log($"Relay OFF via {_config.RelayPort} (addr {_config.RelayAddress}, mask {_config.RelayMask})");
                 _relayUpdate(false);
                 RelayController.TurnOff(_config.RelayPort, _config.RelayBaudrate, _config.RelayAddress, mask);
                 Thread.Sleep(_config.RelayOffMs);
                 
-                _log($"\nRelay ON");
+                _log($"Relay ON");
                 _relayUpdate(true);
                 RelayController.TurnOn(_config.RelayPort, _config.RelayBaudrate, _config.RelayAddress, mask);
                 Thread.Sleep(_config.RelayOnMs);
             }
-            catch (Exception ex) { _log($"\nRelay Error: {ex.Message}"); }
+            catch (Exception ex) { _log($"Relay Error: {ex.Message}"); }
         }
     }
 }
