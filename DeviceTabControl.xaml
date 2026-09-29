@@ -219,7 +219,7 @@
                             <RadioButton x:Name="RbSsdStress" GroupName="TestType" Content="SSD Stress Test" IsChecked="True" Checked="ToggleParams" Margin="0,0,15,0" ToolTip="Writes then reads a large file each cycle to stress-test storage"/>
                             <RadioButton x:Name="RbSsdContinuous" GroupName="TestType" Content="Continuous R/W Test" Checked="ToggleParams" Margin="0,0,15,0" ToolTip="Runs repeated write/read passes without restarting or power-cycling between them"/>
                             <RadioButton x:Name="RbFsck" GroupName="TestType" Content="FSCK Drive Test" Checked="ToggleParams" Margin="0,0,15,0" ToolTip="Filesystem check style test (uses the SSD 1GB parameters)"/>
-                            <RadioButton x:Name="RbPing" GroupName="TestType" Content="Remote Ping Test" Checked="ToggleParams" Margin="0,0,15,0" ToolTip="Provede ping ze zařízení na zadanou adresu přes SSH"/>
+                            <RadioButton x:Name="RbPing" GroupName="TestType" Content="Remote Ping Test" Checked="ToggleParams" Margin="0,0,15,0" ToolTip="Performs a ping from the device to the specified address via SSH."/>
                             <RadioButton x:Name="RbCustom" GroupName="TestType" Content="Custom Test" Checked="ToggleParams" ToolTip="Runs your own list of SSH commands from a text file"/>
                         </StackPanel>
                     </Border>
@@ -301,7 +301,8 @@
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="Target Address:" VerticalAlignment="Center" FontWeight="Normal"/>
-                                    <TextBox x:Name="TxtPingTarget" Text="8.8.8.8" Grid.Column="1" Padding="6,2" MinHeight="26" VerticalContentAlignment="Center" />
+                                    <TextBox x:Name="TxtPingTarget" Text="8.8.8.8" Grid.Column="1" Padding="6,2" MinHeight="26" VerticalContentAlignment="Center"
+                                             ToolTip="The target IP address to ping from the device."/>
                                 </Grid>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
@@ -309,7 +310,8 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="Timeout (s):" VerticalAlignment="Center" FontWeight="Normal"/>
-                                    <TextBox x:Name="TxtPingTargetTimeout" Text="10" Grid.Column="1" Width="100" Padding="6,2" MinHeight="26" VerticalContentAlignment="Center" />
+                                    <TextBox x:Name="TxtPingTargetTimeout" Text="10" Grid.Column="1" Width="100" Padding="6,2" MinHeight="26" VerticalContentAlignment="Center"
+                                             ToolTip="Maximum wait time for a ping response."/>
                                 </Grid>
                             </StackPanel>
                         </Grid>
